@@ -102,9 +102,9 @@ class Client:
 
     async def __aenter__(self) -> Self:
         """Enter async context manager."""
-        auth = aiohttp.BasicAuth(str(self._account_id), self._license_key)
+        self._auth = aiohttp.BasicAuth(str(self._account_id), self._license_key)
         headers = {"User-Agent": f"geoipupdate-python/{__version__}"}
-        self._session = aiohttp.ClientSession(auth=auth, headers=headers)
+        self._session = aiohttp.ClientSession(headers=headers)
         return self
 
     async def __aexit__(
@@ -161,7 +161,7 @@ class Client:
         url = f"{self._host}/geoip/updates/metadata?{params}"
 
         try:
-            async with self._session.get(url, proxy=self._proxy) as response:
+            async with self._session.get(url, proxy=self._proxy, auth=self._auth) as response:
                 body = await response.text()
 
                 if response.status == 401:
@@ -287,7 +287,7 @@ class Client:
         url = f"{self._host}/geoip/databases/{escaped_edition}/download?{params}"
 
         try:
-            async with self._session.get(url, proxy=self._proxy) as response:
+            async with self._session.get(url, proxy=self._proxy, auth=self._auth) as response:
                 if response.status == 401:
                     msg = "Invalid account ID or license key"
                     raise AuthenticationError(msg)
