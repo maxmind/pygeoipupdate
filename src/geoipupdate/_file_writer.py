@@ -1,0 +1,173 @@
+"""File writer for geoipupdate databases."""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import os
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+from geoipupdate.errors import HashMismatchError
+
+logger = logging.getLogger(__name__)
+
+ZERO_MD5 = "00000000000000000000000000000000"
+
+
+class LocalFileWriter:
+    """Writes database files atomically with MD5 verification.
+
+    Databases are written to a temporary file first, then atomically
+    renamed to their final location after hash verification.
+    """
+
+    def __init__(
+        self,
+        database_dir: Path,
+        *,
+        preserve_file_times: bool = False,
+        verbose: bool = False,
+    ) -> None:
+        """Initialize the file writer.
+
+        Args:
+            database_dir: Directory to store database files.
+            preserve_file_times: Whether to preserve file modification times.
+            verbose: Enable verbose logging.
+
+        """
+        self._dir = database_dir
+        self._preserve_file_times = preserve_file_times
+        self._verbose = verbose
+
+        # Ensure database directory exists
+        self._dir.mkdir(parents=True, exist_ok=True)
+
+    def get_hash(self, edition_id: str) -> str:
+        """Get the MD5 hash of an existing database file.
+
+        Args:
+            edition_id: The database edition ID.
+
+        Returns:
+            The MD5 hash as a hex string, or ZERO_MD5 if the file doesn't exist.
+
+        """
+        file_path = self._get_file_path(edition_id)
+
+        if not file_path.exists():
+            if self._verbose:
+                logger.info("Database does not exist, returning zeroed hash")
+            return ZERO_MD5
+
+        md5_hash = hashlib.md5()
+        with file_path.open("rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                md5_hash.update(chunk)
+
+        result = md5_hash.hexdigest()
+        if self._verbose:
+            logger.info("Calculated MD5 sum for %s: %s", file_path, result)
+
+        return result
+
+    def write(
+        self,
+        edition_id: str,
+        data: bytes,
+        expected_md5: str,
+        last_modified: datetime | None = None,
+    ) -> None:
+        """Write database data to a file atomically.
+
+        Args:
+            edition_id: The database edition ID.
+            data: The database file contents.
+            expected_md5: Expected MD5 hash of the data.
+            last_modified: Optional timestamp to set as the file's mtime.
+
+        Raises:
+            HashMismatchError: If the data hash doesn't match expected_md5.
+            OSError: If file operations fail.
+
+        """
+        final_path = self._get_file_path(edition_id)
+
+        # Calculate hash while writing to temp file
+        actual_md5 = hashlib.md5(data).hexdigest()
+
+        # Verify hash
+        if actual_md5.lower() != expected_md5.lower():
+            msg = (
+                f"MD5 of new database ({actual_md5}) "
+                f"does not match expected MD5 ({expected_md5})"
+            )
+            raise HashMismatchError(msg, expected=expected_md5, actual=actual_md5)
+
+        # Write to temporary file in the same directory for atomic rename
+        fd, temp_path = tempfile.mkstemp(
+            suffix=".temporary",
+            prefix=f"{edition_id}_",
+            dir=self._dir,
+        )
+
+        try:
+            # Write data
+            os.write(fd, data)
+            os.fsync(fd)
+            os.close(fd)
+
+            # Atomic rename
+            os.replace(temp_path, final_path)
+
+            # Sync directory
+            self._sync_dir(self._dir)
+
+            # Set modification time if requested
+            if self._preserve_file_times and last_modified:
+                timestamp = last_modified.timestamp()
+                os.utime(final_path, (timestamp, timestamp))
+
+            if self._verbose:
+                logger.info(
+                    "Database %s successfully updated: %s", edition_id, expected_md5
+                )
+
+        except Exception:
+            # Clean up temp file on error
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+            raise
+
+    def _get_file_path(self, edition_id: str) -> Path:
+        """Get the file path for a database edition.
+
+        Args:
+            edition_id: The database edition ID.
+
+        Returns:
+            Path to the database file.
+
+        """
+        return self._dir / f"{edition_id}.mmdb"
+
+    def _sync_dir(self, path: Path) -> None:
+        """Sync directory to ensure rename is persisted.
+
+        Args:
+            path: Directory path to sync.
+
+        """
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        except OSError:
+            # Ignore sync errors (some filesystems don't support it)
+            pass
