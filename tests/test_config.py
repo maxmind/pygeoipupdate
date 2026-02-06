@@ -177,6 +177,25 @@ class TestParseDuration:
         with pytest.raises(ConfigError, match="is not a valid duration"):
             _parse_duration("")
 
+    def test_zero_seconds(self) -> None:
+        assert _parse_duration("0s") == timedelta(0)
+
+    def test_combined_minutes_seconds(self) -> None:
+        assert _parse_duration("1m30s") == timedelta(minutes=1, seconds=30)
+
+    def test_large_values(self) -> None:
+        assert _parse_duration("99h99m99s") == timedelta(
+            hours=99, minutes=99, seconds=99
+        )
+
+    def test_space_invalid(self) -> None:
+        with pytest.raises(ConfigError, match="is not a valid duration"):
+            _parse_duration("1h 30m")
+
+    def test_wrong_order_invalid(self) -> None:
+        with pytest.raises(ConfigError, match="is not a valid duration"):
+            _parse_duration("30m5h")
+
 
 class TestParseEnvironment:
     """Tests for _parse_environment."""

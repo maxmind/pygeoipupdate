@@ -6,6 +6,7 @@ import gzip
 import io
 import tarfile
 
+import aiohttp
 import pytest
 from pytest_httpserver import HTTPServer
 
@@ -14,6 +15,7 @@ from geoipupdate.client import (
     NoUpdateAvailable,
     UpdateAvailable,
     _extract_mmdb_from_tar_gz,
+    _is_retryable_error,
 )
 from geoipupdate.errors import AuthenticationError, DownloadError, HTTPError
 
@@ -268,3 +270,28 @@ class TestClient:
 
         with pytest.raises(RuntimeError, match="must be used as async context manager"):
             await client.get_metadata("GeoLite2-City")
+
+
+class TestIsRetryableError:
+    """Tests for _is_retryable_error."""
+
+    def test_auth_error_not_retryable(self) -> None:
+        assert _is_retryable_error(AuthenticationError("bad key")) is False
+
+    def test_http_500_retryable(self) -> None:
+        assert _is_retryable_error(HTTPError("fail", status_code=500, body="")) is True
+
+    def test_http_404_not_retryable(self) -> None:
+        assert _is_retryable_error(HTTPError("fail", status_code=404, body="")) is False
+
+    def test_client_error_retryable(self) -> None:
+        assert _is_retryable_error(aiohttp.ClientError("conn")) is True
+
+    def test_timeout_retryable(self) -> None:
+        assert _is_retryable_error(TimeoutError()) is True
+
+    def test_download_error_not_retryable(self) -> None:
+        assert _is_retryable_error(DownloadError("no mmdb")) is False
+
+    def test_unrelated_error_not_retryable(self) -> None:
+        assert _is_retryable_error(ValueError("bad")) is False
