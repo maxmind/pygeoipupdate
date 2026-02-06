@@ -7,6 +7,7 @@ import hashlib
 import io
 import tarfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -308,3 +309,26 @@ class TestUpdater:
             await updater.run()
 
         # Lock should be released after context manager exits
+
+    @pytest.mark.asyncio
+    async def test_aenter_failure_cleans_up(self, tmp_path: Path) -> None:
+        """If Client.__aenter__ raises, __aexit__ should not produce a secondary error."""
+        config = Config(
+            account_id=12345,
+            license_key="test_key",
+            edition_ids=["GeoLite2-City"],
+            database_directory=tmp_path,
+        )
+
+        updater = Updater(config)
+        with (
+            patch(
+                "geoipupdate.updater.Client.__aenter__",
+                side_effect=RuntimeError("connection failed"),
+            ),
+            pytest.raises(RuntimeError, match="connection failed"),
+        ):
+            await updater.__aenter__()
+
+        # __aexit__ should not raise even though __aenter__ failed
+        await updater.__aexit__(None, None, None)

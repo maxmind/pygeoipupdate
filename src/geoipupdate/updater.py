@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -49,23 +50,29 @@ class Updater:
         self._client: Client | None = None
         self._writer: LocalFileWriter | None = None
         self._lock: FileLock | None = None
+        self._exit_stack: contextlib.AsyncExitStack | None = None
 
     async def __aenter__(self) -> Self:
         """Enter async context manager."""
-        self._client = Client(
-            account_id=self._config.account_id,
-            license_key=self._config.license_key,
-            host=self._config.host,
-            proxy=self._config.proxy,
-            retry_for=self._config.retry_for,
-        )
-        await self._client.__aenter__()
+        self._exit_stack = contextlib.AsyncExitStack()
+        try:
+            client = Client(
+                account_id=self._config.account_id,
+                license_key=self._config.license_key,
+                host=self._config.host,
+                proxy=self._config.proxy,
+                retry_for=self._config.retry_for,
+            )
+            self._client = await self._exit_stack.enter_async_context(client)
 
-        self._writer = LocalFileWriter(
-            self._config.database_directory,
-            preserve_file_times=self._config.preserve_file_times,
-            verbose=self._config.verbose,
-        )
+            self._writer = LocalFileWriter(
+                self._config.database_directory,
+                preserve_file_times=self._config.preserve_file_times,
+                verbose=self._config.verbose,
+            )
+        except BaseException:
+            await self._exit_stack.aclose()
+            raise
 
         return self
 
@@ -76,9 +83,9 @@ class Updater:
         exc_tb: object,
     ) -> None:
         """Exit async context manager."""
-        if self._client:
-            await self._client.__aexit__(exc_type, exc_val, exc_tb)
-            self._client = None
+        if self._exit_stack:
+            await self._exit_stack.aclose()
+            self._exit_stack = None
 
     async def run(self) -> list[UpdateResult]:
         """Run the update process for all configured editions.
