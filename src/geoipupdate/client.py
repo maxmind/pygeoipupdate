@@ -351,17 +351,28 @@ def _extract_mmdb_from_tar_gz(data: bytes) -> bytes:
         DownloadError: If no .mmdb file is found in the archive.
 
     """
+    found_mmdb = False
     try:
         with gzip.GzipFile(fileobj=io.BytesIO(data)) as gz:
             with tarfile.open(fileobj=gz, mode="r|") as tar:
                 for member in tar:
                     if member.name.endswith(".mmdb"):
-                        extracted = tar.extractfile(member)
+                        found_mmdb = True
+                        try:
+                            extracted = tar.extractfile(member)
+                        except tarfile.StreamError:
+                            continue
                         if extracted:
                             return extracted.read()
     except (gzip.BadGzipFile, tarfile.TarError) as e:
         msg = f"Failed to extract database from archive: {e}"
         raise DownloadError(msg) from e
 
-    msg = "tar archive does not contain an mmdb file"
+    if found_mmdb:
+        msg = (
+            "tar archive contains an mmdb entry "
+            "but it could not be extracted (may be a symlink)"
+        )
+    else:
+        msg = "tar archive does not contain an mmdb file"
     raise DownloadError(msg)

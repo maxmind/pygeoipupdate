@@ -63,6 +63,22 @@ class TestExtractMmdbFromTarGz:
         with pytest.raises(DownloadError, match="does not contain an mmdb file"):
             _extract_mmdb_from_tar_gz(gz_buffer.getvalue())
 
+    def test_mmdb_symlink_not_extractable(self) -> None:
+        """A symlink .mmdb entry should give a specific error."""
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+            info = tarfile.TarInfo(name="GeoLite2-City/GeoLite2-City.mmdb")
+            info.type = tarfile.SYMTYPE
+            info.linkname = "nonexistent"
+            tar.addfile(info)
+
+        gz_buffer = io.BytesIO()
+        with gzip.GzipFile(fileobj=gz_buffer, mode="wb") as gz:
+            gz.write(tar_buffer.getvalue())
+
+        with pytest.raises(DownloadError, match="could not be extracted"):
+            _extract_mmdb_from_tar_gz(gz_buffer.getvalue())
+
     def test_invalid_gzip(self) -> None:
         with pytest.raises(DownloadError, match="Failed to extract"):
             _extract_mmdb_from_tar_gz(b"not valid gzip data")
