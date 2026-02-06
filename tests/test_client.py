@@ -71,13 +71,17 @@ class TestClient:
         httpserver.expect_request(
             "/geoip/updates/metadata",
             query_string="edition_id=GeoLite2-City",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": "abc123def456",
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": "abc123def456",
+                    }
+                ]
+            }
+        )
 
         async with Client(
             account_id=12345,
@@ -144,13 +148,17 @@ class TestClient:
     async def test_download_no_update_needed(self, httpserver: HTTPServer) -> None:
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": "current_hash",
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": "current_hash",
+                    }
+                ]
+            }
+        )
 
         async with Client(
             account_id=12345,
@@ -170,13 +178,17 @@ class TestClient:
 
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": "new_hash",
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": "new_hash",
+                    }
+                ]
+            }
+        )
 
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
@@ -203,13 +215,17 @@ class TestClient:
     async def test_download_auth_error(self, httpserver: HTTPServer) -> None:
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": "new_hash",
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": "new_hash",
+                    }
+                ]
+            }
+        )
 
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
@@ -232,4 +248,3 @@ class TestClient:
 
         with pytest.raises(RuntimeError, match="must be used as async context manager"):
             await client.get_metadata("GeoLite2-City")
-

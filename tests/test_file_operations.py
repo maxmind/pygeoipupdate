@@ -157,12 +157,15 @@ class TestLocalFileWriter:
 
         assert path == tmp_path / "GeoLite2-City.mmdb"
 
-    def test_verbose_logging(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    def test_verbose_logging(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         writer = LocalFileWriter(tmp_path, verbose=True)
         content = b"test content"
         md5_hash = hashlib.md5(content).hexdigest()
 
         import logging
+
         with caplog.at_level(logging.INFO):
             writer.write("GeoLite2-City", content, md5_hash)
 

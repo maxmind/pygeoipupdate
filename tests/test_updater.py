@@ -46,13 +46,17 @@ class TestUpdater:
         httpserver.expect_request(
             "/geoip/updates/metadata",
             query_string="edition_id=GeoLite2-City",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": mmdb_hash,
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": mmdb_hash,
+                    }
+                ]
+            }
+        )
 
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
@@ -96,13 +100,17 @@ class TestUpdater:
 
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": mmdb_hash,
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": mmdb_hash,
+                    }
+                ]
+            }
+        )
 
         config = Config(
             account_id=12345,
@@ -146,9 +154,17 @@ class TestUpdater:
         httpserver.expect_request(
             "/geoip/updates/metadata",
             query_string="edition_id=GeoLite2-City",
-        ).respond_with_json({
-            "databases": [{"edition_id": "GeoLite2-City", "date": "2024-01-15", "md5": city_hash}]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": city_hash,
+                    }
+                ]
+            }
+        )
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
         ).respond_with_data(city_tar_gz, content_type="application/gzip")
@@ -157,9 +173,17 @@ class TestUpdater:
         httpserver.expect_request(
             "/geoip/updates/metadata",
             query_string="edition_id=GeoLite2-Country",
-        ).respond_with_json({
-            "databases": [{"edition_id": "GeoLite2-Country", "date": "2024-01-15", "md5": country_hash}]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-Country",
+                        "date": "2024-01-15",
+                        "md5": country_hash,
+                    }
+                ]
+            }
+        )
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-Country/download",
         ).respond_with_data(country_tar_gz, content_type="application/gzip")
@@ -204,9 +228,13 @@ class TestUpdater:
             httpserver.expect_request(
                 "/geoip/updates/metadata",
                 query_string=f"edition_id={edition}",
-            ).respond_with_json({
-                "databases": [{"edition_id": edition, "date": "2024-01-15", "md5": md5_hash}]
-            })
+            ).respond_with_json(
+                {
+                    "databases": [
+                        {"edition_id": edition, "date": "2024-01-15", "md5": md5_hash}
+                    ]
+                }
+            )
             httpserver.expect_request(
                 f"/geoip/databases/{edition}/download",
             ).respond_with_data(tar_gz, content_type="application/gzip")
@@ -242,18 +270,24 @@ class TestUpdater:
             await updater.run()
 
     @pytest.mark.asyncio
-    async def test_file_locking(
-        self, httpserver: HTTPServer, tmp_path: Path
-    ) -> None:
+    async def test_file_locking(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         mmdb_content = b"test data"
         mmdb_hash = hashlib.md5(mmdb_content).hexdigest()
         tar_gz_data = create_test_tar_gz(mmdb_content)
 
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{"edition_id": "GeoLite2-City", "date": "2024-01-15", "md5": mmdb_hash}]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": mmdb_hash,
+                    }
+                ]
+            }
+        )
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
         ).respond_with_data(tar_gz_data, content_type="application/gzip")

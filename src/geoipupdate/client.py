@@ -161,7 +161,9 @@ class Client:
         url = f"{self._host}/geoip/updates/metadata?{params}"
 
         try:
-            async with self._session.get(url, proxy=self._proxy, auth=self._auth) as response:
+            async with self._session.get(
+                url, proxy=self._proxy, auth=self._auth
+            ) as response:
                 body = await response.text()
 
                 if response.status == 401:
@@ -287,7 +289,9 @@ class Client:
         url = f"{self._host}/geoip/databases/{escaped_edition}/download?{params}"
 
         try:
-            async with self._session.get(url, proxy=self._proxy, auth=self._auth) as response:
+            async with self._session.get(
+                url, proxy=self._proxy, auth=self._auth
+            ) as response:
                 if response.status == 401:
                     msg = "Invalid account ID or license key"
                     raise AuthenticationError(msg)

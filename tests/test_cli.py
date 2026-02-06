@@ -72,22 +72,24 @@ class TestCLI:
         assert result.exit_code == 1
         assert "Configuration error" in result.output
 
-    def test_successful_update(
-        self, httpserver: HTTPServer, tmp_path: Path
-    ) -> None:
+    def test_successful_update(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         mmdb_content = b"test mmdb data"
         mmdb_hash = hashlib.md5(mmdb_content).hexdigest()
         tar_gz_data = create_test_tar_gz(mmdb_content)
 
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": mmdb_hash,
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": mmdb_hash,
+                    }
+                ]
+            }
+        )
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
         ).respond_with_data(tar_gz_data, content_type="application/gzip")
@@ -106,22 +108,24 @@ DatabaseDirectory {tmp_path}
         assert result.exit_code == 0
         assert (tmp_path / "GeoLite2-City.mmdb").exists()
 
-    def test_verbose_output(
-        self, httpserver: HTTPServer, tmp_path: Path
-    ) -> None:
+    def test_verbose_output(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         mmdb_content = b"test mmdb data"
         mmdb_hash = hashlib.md5(mmdb_content).hexdigest()
         tar_gz_data = create_test_tar_gz(mmdb_content)
 
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": mmdb_hash,
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": mmdb_hash,
+                    }
+                ]
+            }
+        )
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
         ).respond_with_data(tar_gz_data, content_type="application/gzip")
@@ -139,22 +143,24 @@ DatabaseDirectory {tmp_path}
 
         assert result.exit_code == 0
 
-    def test_json_output(
-        self, httpserver: HTTPServer, tmp_path: Path
-    ) -> None:
+    def test_json_output(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         mmdb_content = b"test mmdb data"
         mmdb_hash = hashlib.md5(mmdb_content).hexdigest()
         tar_gz_data = create_test_tar_gz(mmdb_content)
 
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": mmdb_hash,
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": mmdb_hash,
+                    }
+                ]
+            }
+        )
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
         ).respond_with_data(tar_gz_data, content_type="application/gzip")
@@ -193,33 +199,37 @@ DatabaseDirectory {tmp_path}
         assert result.exit_code == 1
         assert "Authentication error" in result.output
 
-    def test_env_var_config(
-        self, httpserver: HTTPServer, tmp_path: Path
-    ) -> None:
+    def test_env_var_config(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         mmdb_content = b"test mmdb data"
         mmdb_hash = hashlib.md5(mmdb_content).hexdigest()
         tar_gz_data = create_test_tar_gz(mmdb_content)
 
         httpserver.expect_request(
             "/geoip/updates/metadata",
-        ).respond_with_json({
-            "databases": [{
-                "edition_id": "GeoLite2-City",
-                "date": "2024-01-15",
-                "md5": mmdb_hash,
-            }]
-        })
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": mmdb_hash,
+                    }
+                ]
+            }
+        )
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
         ).respond_with_data(tar_gz_data, content_type="application/gzip")
 
-        runner = CliRunner(env={
-            "GEOIPUPDATE_ACCOUNT_ID": "12345",
-            "GEOIPUPDATE_LICENSE_KEY": "test_key",
-            "GEOIPUPDATE_EDITION_IDS": "GeoLite2-City",
-            "GEOIPUPDATE_HOST": httpserver.url_for("/"),
-            "GEOIPUPDATE_DB_DIR": str(tmp_path),
-        })
+        runner = CliRunner(
+            env={
+                "GEOIPUPDATE_ACCOUNT_ID": "12345",
+                "GEOIPUPDATE_LICENSE_KEY": "test_key",
+                "GEOIPUPDATE_EDITION_IDS": "GeoLite2-City",
+                "GEOIPUPDATE_HOST": httpserver.url_for("/"),
+                "GEOIPUPDATE_DB_DIR": str(tmp_path),
+            }
+        )
         result = runner.invoke(main, [])
 
         assert result.exit_code == 0

@@ -141,7 +141,9 @@ class Config:
             host=str(config_data["host"]),
             proxy=config_data.get("proxy"),  # type: ignore[arg-type]
             preserve_file_times=bool(config_data.get("preserve_file_times", False)),
-            lock_file=Path(config_data["lock_file"]) if config_data.get("lock_file") else None,  # type: ignore[arg-type]
+            lock_file=Path(config_data["lock_file"])
+            if config_data.get("lock_file")
+            else None,  # type: ignore[arg-type]
             retry_for=config_data["retry_for"],  # type: ignore[arg-type]
             parallelism=int(config_data["parallelism"]),  # type: ignore[arg-type]
             verbose=bool(config_data.get("verbose", False)),
