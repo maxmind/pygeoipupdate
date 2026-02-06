@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import io
+import logging
 import tarfile
 from dataclasses import dataclass
 from datetime import datetime
@@ -25,6 +26,8 @@ from geoipupdate.models import Metadata
 
 if TYPE_CHECKING:
     from datetime import timedelta
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -319,7 +322,10 @@ class Client:
                     try:
                         last_modified = parsedate_to_datetime(lm_header)
                     except (ValueError, TypeError):
-                        pass
+                        logger.debug(
+                            "Failed to parse Last-Modified header: %r",
+                            lm_header,
+                        )
 
                 # Read and extract the tar.gz
                 compressed_data = await response.read()

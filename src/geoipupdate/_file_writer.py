@@ -120,7 +120,7 @@ class LocalFileWriter:
             try:
                 os.unlink(temp_path)
             except OSError:
-                pass
+                logger.warning("Failed to clean up temp file: %s", temp_path)
             raise
         os.close(fd)
 
@@ -145,7 +145,7 @@ class LocalFileWriter:
             try:
                 os.unlink(temp_path)
             except OSError:
-                pass
+                logger.warning("Failed to clean up temp file: %s", temp_path)
             raise
 
     def _get_file_path(self, edition_id: str) -> Path:
@@ -167,6 +167,8 @@ class LocalFileWriter:
             path: Directory path to sync.
 
         """
+        if not hasattr(os, "O_DIRECTORY"):
+            return
         try:
             fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY)
             try:
@@ -174,5 +176,5 @@ class LocalFileWriter:
             finally:
                 os.close(fd)
         except OSError:
-            # Ignore sync errors (some filesystems don't support it)
-            pass
+            # Some filesystems don't support directory fsync
+            logger.warning("Failed to sync directory %s", path)
