@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Self
 
 from geoipupdate._file_lock import FileLock
 from geoipupdate._file_writer import LocalFileWriter
-from geoipupdate.client import Client
+from geoipupdate.client import Client, NoUpdateAvailable
 from geoipupdate.models import UpdateResult
 
 if TYPE_CHECKING:
@@ -174,7 +174,7 @@ class Updater:
 
         checked_at = datetime.now(timezone.utc)
 
-        if not response.update_available:
+        if isinstance(response, NoUpdateAvailable):
             if self._config.verbose:
                 logger.info("No new updates available for %s", edition_id)
                 logger.info("Database %s up to date", edition_id)

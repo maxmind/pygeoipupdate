@@ -9,7 +9,12 @@ import tarfile
 import pytest
 from pytest_httpserver import HTTPServer
 
-from geoipupdate.client import Client, _extract_mmdb_from_tar_gz
+from geoipupdate.client import (
+    Client,
+    NoUpdateAvailable,
+    UpdateAvailable,
+    _extract_mmdb_from_tar_gz,
+)
 from geoipupdate.errors import AuthenticationError, DownloadError, HTTPError
 
 
@@ -167,8 +172,7 @@ class TestClient:
         ) as client:
             response = await client.download("GeoLite2-City", "current_hash")
 
-            assert response.update_available is False
-            assert response.data == b""
+            assert isinstance(response, NoUpdateAvailable)
             assert response.md5 == "current_hash"
 
     @pytest.mark.asyncio
@@ -206,7 +210,7 @@ class TestClient:
         ) as client:
             response = await client.download("GeoLite2-City", "old_hash")
 
-            assert response.update_available is True
+            assert isinstance(response, UpdateAvailable)
             assert response.data == mmdb_content
             assert response.md5 == "new_hash"
             assert response.last_modified is not None

@@ -27,22 +27,36 @@ if TYPE_CHECKING:
     from datetime import timedelta
 
 
-@dataclass
-class DownloadResponse:
-    """Response from a download request.
+@dataclass(frozen=True)
+class NoUpdateAvailable:
+    """Returned when the local database is already up to date.
 
     Attributes:
-        update_available: True if an update is available.
-        data: The MMDB file data (only set if update_available is True).
-        md5: The MD5 hash of the downloaded file.
+        md5: The MD5 hash of the current database.
+
+    """
+
+    md5: str
+
+
+@dataclass(frozen=True)
+class UpdateAvailable:
+    """Returned when a newer database was downloaded.
+
+    Attributes:
+        data: The MMDB file data.
+        md5: Expected MD5 hash from the metadata response, used to verify
+            the downloaded database.
         last_modified: The last modified timestamp from the server.
 
     """
 
-    update_available: bool
     data: bytes
     md5: str
     last_modified: datetime | None
+
+
+DownloadResponse = NoUpdateAvailable | UpdateAvailable
 
 
 def _is_retryable_error(exception: BaseException) -> bool:
@@ -245,18 +259,12 @@ class Client:
         metadata = await self._get_metadata(edition_id)
 
         if metadata.md5 == current_md5:
-            return DownloadResponse(
-                update_available=False,
-                data=b"",
-                md5=current_md5,
-                last_modified=None,
-            )
+            return NoUpdateAvailable(md5=current_md5)
 
         # Download the database
         data, last_modified = await self._fetch_database(edition_id, metadata.date)
 
-        return DownloadResponse(
-            update_available=True,
+        return UpdateAvailable(
             data=data,
             md5=metadata.md5,
             last_modified=last_modified,
