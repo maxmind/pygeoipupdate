@@ -310,9 +310,10 @@ def _parse_host(value: str) -> str:
 
 
 def _parse_duration(value: str) -> timedelta:
-    """Parse a Go-style duration string.
+    """Parse a duration string with optional hours, minutes, and seconds.
 
     Supports formats like "5m", "1h30m", "2h", "300s".
+    Components must appear in h, m, s order.
 
     Args:
         value: Duration string.

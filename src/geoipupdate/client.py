@@ -70,7 +70,7 @@ def _is_retryable_error(exception: BaseException) -> bool:
 
     """
     if isinstance(exception, HTTPError):
-        # 4xx errors are not retryable (permanent errors)
+        # Only 5xx (server) errors are retryable
         return exception.status_code >= 500
     if isinstance(exception, AuthenticationError):
         return False

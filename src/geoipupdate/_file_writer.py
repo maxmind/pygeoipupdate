@@ -95,10 +95,9 @@ class LocalFileWriter:
         """
         final_path = self._get_file_path(edition_id)
 
-        # Calculate hash while writing to temp file
+        # Verify hash of data before writing
         actual_md5 = hashlib.md5(data).hexdigest()
 
-        # Verify hash
         if actual_md5.lower() != expected_md5.lower():
             msg = (
                 f"MD5 of new database ({actual_md5}) "
