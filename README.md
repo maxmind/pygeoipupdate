@@ -164,8 +164,8 @@ Options:
   -v, --verbose             Enable verbose output
   -o, --output              Output download results as JSON
   --parallelism INTEGER     Number of parallel downloads
-  --version                 Show the version and exit
-  --help                    Show this message and exit
+  -V, --version             Show the version and exit
+  -h, --help                Show this message and exit
 ```
 
 ## Default Paths

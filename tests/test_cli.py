@@ -42,6 +42,14 @@ class TestCLI:
         assert "geoipupdate" in result.output
         assert "1.0.0" in result.output
 
+    def test_version_short_flag(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(main, ["-V"])
+
+        assert result.exit_code == 0
+        assert "geoipupdate" in result.output
+        assert "1.0.0" in result.output
+
     def test_help(self) -> None:
         runner = CliRunner()
         result = runner.invoke(main, ["--help"])
@@ -52,6 +60,26 @@ class TestCLI:
         assert "--database-directory" in result.output
         assert "--verbose" in result.output
         assert "--output" in result.output
+
+    def test_help_short_flag(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(main, ["-h"])
+
+        assert result.exit_code == 0
+        assert "Update MaxMind GeoIP databases" in result.output
+
+    def test_negative_parallelism(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "GeoIP.conf"
+        config_file.write_text("""AccountID 12345
+LicenseKey test_key
+EditionIDs GeoLite2-City
+""")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["-f", str(config_file), "--parallelism", "-1"])
+
+        assert result.exit_code != 0
+        assert "Parallelism must be a positive number" in result.output
 
     def test_missing_config(self, tmp_path: Path) -> None:
         runner = CliRunner()

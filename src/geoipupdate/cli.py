@@ -21,41 +21,41 @@ from geoipupdate.errors import (
 from geoipupdate.updater import Updater
 
 
-@click.command()
+@click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
     "--config-file",
     "-f",
     type=click.Path(exists=True, path_type=Path),
     envvar="GEOIPUPDATE_CONF_FILE",
-    help="Path to the configuration file.",
+    help="Configuration file.",
 )
 @click.option(
     "--database-directory",
     "-d",
     type=click.Path(path_type=Path),
     envvar="GEOIPUPDATE_DB_DIR",
-    help="Directory to store database files.",
+    help="Store databases in this directory (uses config if not specified).",
 )
 @click.option(
     "--verbose",
     "-v",
     is_flag=True,
     envvar="GEOIPUPDATE_VERBOSE",
-    help="Enable verbose output.",
+    help="Use verbose output.",
 )
 @click.option(
     "--output",
     "-o",
     is_flag=True,
-    help="Output download results as JSON.",
+    help="Output download/update results in JSON format.",
 )
 @click.option(
     "--parallelism",
     type=int,
     default=0,
-    help="Number of parallel downloads (default: from config or 1).",
+    help="Set the number of parallel database downloads.",
 )
-@click.version_option(version=__version__, prog_name="geoipupdate")
+@click.version_option(__version__, "-V", "--version", prog_name="geoipupdate")
 def main(
     config_file: Path | None,
     database_directory: Path | None,
@@ -83,6 +83,9 @@ def main(
         # Verbose output with JSON results
         geoipupdate -v -o
     """
+    if parallelism < 0:
+        raise click.UsageError("Parallelism must be a positive number.")
+
     # Set up logging
     if verbose:
         logging.basicConfig(
