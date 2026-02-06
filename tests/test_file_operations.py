@@ -202,3 +202,14 @@ class TestLocalFileWriter:
         # Verify no temp files remain
         temp_files = list(tmp_path.glob("*.temporary"))
         assert temp_files == []
+
+    def test_hash_mismatch_no_temp_files(self, tmp_path: Path) -> None:
+        """Verify no orphaned .temporary files remain after a HashMismatchError."""
+        writer = LocalFileWriter(tmp_path)
+        content = b"test mmdb content"
+
+        with pytest.raises(HashMismatchError):
+            writer.write("GeoLite2-City", content, "wrong_hash")
+
+        temp_files = list(tmp_path.glob("*.temporary"))
+        assert temp_files == []
