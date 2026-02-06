@@ -144,6 +144,10 @@ class Config:
         config_data.pop("_proxy_url", None)
         config_data.pop("_proxy_user_password", None)
 
+        lock_file = None
+        if config_data.get("lock_file"):
+            lock_file = Path(config_data["lock_file"])  # type: ignore[arg-type]
+
         return cls(
             account_id=int(config_data["account_id"]),  # type: ignore[arg-type]
             license_key=str(config_data["license_key"]),
@@ -152,9 +156,7 @@ class Config:
             host=str(config_data["host"]),
             proxy=config_data.get("proxy"),  # type: ignore[arg-type]
             preserve_file_times=bool(config_data.get("preserve_file_times", False)),
-            lock_file=Path(config_data["lock_file"])
-            if config_data.get("lock_file")
-            else None,  # type: ignore[arg-type]
+            lock_file=lock_file,
             retry_for=config_data["retry_for"],  # type: ignore[arg-type]
             parallelism=int(config_data["parallelism"]),  # type: ignore[arg-type]
             verbose=bool(config_data.get("verbose", False)),
