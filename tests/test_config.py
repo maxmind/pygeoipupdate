@@ -362,3 +362,39 @@ EditionIDs GeoLite2-City
         assert config.license_key == "abc123"
         assert config.edition_ids == ["GeoLite2-City"]
         assert config.lock_file == Path("/var/lib/GeoIP/.geoipupdate.lock")
+
+    def test_frozen(self) -> None:
+        config = Config(
+            account_id=12345,
+            license_key="abc123",
+            edition_ids=["GeoLite2-City"],
+            database_directory=Path("/var/lib/GeoIP"),
+        )
+
+        with pytest.raises(AttributeError):
+            config.account_id = 99999  # type: ignore[misc]
+
+    def test_empty_license_key_raises(self) -> None:
+        with pytest.raises(ConfigError, match="LicenseKey.*required"):
+            Config(
+                account_id=1,
+                license_key="",
+                edition_ids=["GeoLite2-City"],
+            )
+
+    def test_empty_edition_ids_raises(self) -> None:
+        with pytest.raises(ConfigError, match="EditionIDs.*required"):
+            Config(
+                account_id=1,
+                license_key="abc123",
+                edition_ids=[],
+            )
+
+    def test_invalid_parallelism_raises(self) -> None:
+        with pytest.raises(ConfigError, match="parallelism should be greater than 0"):
+            Config(
+                account_id=1,
+                license_key="abc123",
+                edition_ids=["GeoLite2-City"],
+                parallelism=0,
+            )

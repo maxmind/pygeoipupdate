@@ -19,7 +19,7 @@ from geoipupdate.errors import ConfigError
 _SCHEME_RE = re.compile(r"(?i)\A([a-z][a-z0-9+\-.]*)://")
 
 
-@dataclass
+@dataclass(frozen=True)
 class Config:
     """Configuration for geoipupdate.
 
@@ -55,7 +55,18 @@ class Config:
     def __post_init__(self) -> None:
         """Validate and set derived values after initialization."""
         if self.lock_file is None:
-            self.lock_file = self.database_directory / ".geoipupdate.lock"
+            object.__setattr__(
+                self, "lock_file", self.database_directory / ".geoipupdate.lock"
+            )
+        if self.account_id < 1:
+            raise ConfigError("account_id must be a positive integer")
+        if not self.edition_ids:
+            raise ConfigError("the `EditionIDs` option is required")
+        if not self.license_key:
+            raise ConfigError("the `LicenseKey` option is required")
+        if self.parallelism < 1:
+            msg = f"parallelism should be greater than 0, got '{self.parallelism}'"
+            raise ConfigError(msg)
 
     @classmethod
     def from_file(
