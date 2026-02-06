@@ -158,6 +158,16 @@ class TestLocalFileWriter:
 
         assert path == tmp_path / "GeoLite2-City.mmdb"
 
+    @pytest.mark.parametrize(
+        "edition_id",
+        ["../etc/passwd", "foo/bar", "foo\\bar", ".."],
+    )
+    def test_path_traversal_rejected(self, tmp_path: Path, edition_id: str) -> None:
+        writer = LocalFileWriter(tmp_path)
+
+        with pytest.raises(ValueError, match="Invalid edition_id"):
+            writer._get_file_path(edition_id)
+
     def test_verbose_logging(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:

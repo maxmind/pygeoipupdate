@@ -157,7 +157,13 @@ class LocalFileWriter:
         Returns:
             Path to the database file.
 
+        Raises:
+            ValueError: If edition_id contains path traversal characters.
+
         """
+        if "/" in edition_id or "\\" in edition_id or ".." in edition_id:
+            msg = f"Invalid edition_id: {edition_id}"
+            raise ValueError(msg)
         return self._dir / f"{edition_id}.mmdb"
 
     def _sync_dir(self, path: Path) -> None:
