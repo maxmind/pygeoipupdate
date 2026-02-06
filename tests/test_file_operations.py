@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -170,3 +171,24 @@ class TestLocalFileWriter:
             writer.write("GeoLite2-City", content, md5_hash)
 
         assert "successfully updated" in caplog.text
+
+    def test_write_failure_closes_fd(self, tmp_path: Path) -> None:
+        """Verify os.close is called when os.write raises."""
+        writer = LocalFileWriter(tmp_path)
+        content = b"test content"
+        md5_hash = hashlib.md5(content).hexdigest()
+
+        with (
+            patch(
+                "geoipupdate._file_writer.os.write", side_effect=OSError("disk full")
+            ),
+            patch("geoipupdate._file_writer.os.close") as mock_close,
+        ):
+            with pytest.raises(OSError, match="disk full"):
+                writer.write("GeoLite2-City", content, md5_hash)
+
+            mock_close.assert_called_once()
+
+        # Verify no temp files remain
+        temp_files = list(tmp_path.glob("*.temporary"))
+        assert temp_files == []

@@ -114,11 +114,18 @@ class LocalFileWriter:
         )
 
         try:
-            # Write data
             os.write(fd, data)
             os.fsync(fd)
+        except Exception:
             os.close(fd)
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+            raise
+        os.close(fd)
 
+        try:
             # Atomic rename
             os.replace(temp_path, final_path)
 
@@ -136,7 +143,6 @@ class LocalFileWriter:
                 )
 
         except Exception:
-            # Clean up temp file on error
             try:
                 os.unlink(temp_path)
             except OSError:
