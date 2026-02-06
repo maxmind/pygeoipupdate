@@ -23,7 +23,7 @@ class Metadata:
     md5: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class UpdateResult:
     """Result of updating a single database edition.
 

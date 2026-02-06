@@ -113,6 +113,7 @@ class Client:
         self._proxy = proxy
         self._retry_for = retry_for
         self._session: aiohttp.ClientSession | None = None
+        self._auth: aiohttp.BasicAuth | None = None
 
     async def __aenter__(self) -> Self:
         """Enter async context manager."""
