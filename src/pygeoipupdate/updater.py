@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -162,12 +161,6 @@ class Updater:
 
         try:
             results = await self._run_updates()
-
-            # Output JSON if requested
-            if self._config.output:
-                output = [r.to_dict() for r in results]
-                print(json.dumps(output))  # noqa: T201
-
             return results
         finally:
             if self._lock:

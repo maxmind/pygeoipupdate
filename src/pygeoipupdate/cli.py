@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import sys
 from pathlib import Path
@@ -143,7 +144,11 @@ async def _run(config: Config) -> None:
 
     """
     async with Updater(config) as updater:
-        await updater.run()
+        results = await updater.run()
+
+    if config.output:
+        output = [r.to_dict() for r in results]
+        print(json.dumps(output))  # noqa: T201
 
 
 if __name__ == "__main__":
