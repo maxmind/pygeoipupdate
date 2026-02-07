@@ -192,9 +192,34 @@ class TestParseDuration:
         with pytest.raises(ConfigError, match="is not a valid duration"):
             _parse_duration("1h 30m")
 
-    def test_wrong_order_invalid(self) -> None:
-        with pytest.raises(ConfigError, match="is not a valid duration"):
-            _parse_duration("30m5h")
+    def test_wrong_order_accepted(self) -> None:
+        # Go's time.ParseDuration accepts any order
+        assert _parse_duration("30m5h") == timedelta(hours=5, minutes=30)
+
+    def test_milliseconds(self) -> None:
+        assert _parse_duration("300ms") == timedelta(milliseconds=300)
+
+    def test_microseconds(self) -> None:
+        assert _parse_duration("100us") == timedelta(microseconds=100)
+
+    def test_microseconds_unicode(self) -> None:
+        assert _parse_duration("100µs") == timedelta(microseconds=100)
+
+    def test_nanoseconds(self) -> None:
+        assert _parse_duration("1000ns") == timedelta(microseconds=1)
+
+    def test_fractional_seconds(self) -> None:
+        assert _parse_duration("1.5s") == timedelta(seconds=1, milliseconds=500)
+
+    def test_fractional_minutes(self) -> None:
+        assert _parse_duration("1.5m") == timedelta(seconds=90)
+
+    def test_mixed_subsecond(self) -> None:
+        assert _parse_duration("1s500ms") == timedelta(seconds=1, milliseconds=500)
+
+    def test_negative_duration_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="not a valid duration"):
+            _parse_duration("-5m")
 
 
 class TestParseEnvironment:

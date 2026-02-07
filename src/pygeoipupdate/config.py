@@ -316,13 +316,14 @@ def _parse_host(value: str) -> str:
 
 
 def _parse_duration(value: str) -> timedelta:
-    """Parse a duration string with optional hours, minutes, and seconds.
+    """Parse a duration string using Go's time.ParseDuration format.
 
-    Supports formats like "5m", "1h30m", "2h", "300s".
-    Components must appear in h, m, s order.
+    Supports units: h, m, s, ms, us/µs, ns. Components can appear in
+    any order. Fractional values like "1.5m" are accepted. Sign prefixes
+    are not supported (only non-negative durations are valid).
 
     Args:
-        value: Duration string.
+        value: Duration string (e.g. "5m", "1h30m", "300ms", "1.5s").
 
     Returns:
         Parsed timedelta.
@@ -331,23 +332,47 @@ def _parse_duration(value: str) -> timedelta:
         ConfigError: If the duration cannot be parsed.
 
     """
-    pattern = re.compile(r"^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
-    match = pattern.match(value)
-
-    if not match or not any(match.groups()):
+    if not value:
         msg = f"'{value}' is not a valid duration"
         raise ConfigError(msg)
 
-    hours = int(match.group(1) or 0)
-    minutes = int(match.group(2) or 0)
-    seconds = int(match.group(3) or 0)
+    if value.strip() == "0":
+        return timedelta()
 
-    duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
-    if duration < timedelta(0):
+    # Match Go's time.ParseDuration format (without sign):
+    # one or more (number, unit) pairs.
+    pattern = re.compile(r"^(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)")
+    remaining = value
+    total_us = 0.0
+    found = False
+
+    # Unit values in microseconds
+    unit_us = {
+        "ns": 0.001,
+        "us": 1.0,
+        "µs": 1.0,
+        "ms": 1_000.0,
+        "s": 1_000_000.0,
+        "m": 60_000_000.0,
+        "h": 3_600_000_000.0,
+    }
+
+    while remaining:
+        match = pattern.match(remaining)
+        if not match:
+            msg = f"'{value}' is not a valid duration"
+            raise ConfigError(msg)
+        found = True
+        amount = float(match.group(1))
+        unit = match.group(2)
+        total_us += amount * unit_us[unit]
+        remaining = remaining[match.end() :]
+
+    if not found:
         msg = f"'{value}' is not a valid duration"
         raise ConfigError(msg)
 
-    return duration
+    return timedelta(microseconds=total_us)
 
 
 def _parse_environment() -> dict[str, object]:
