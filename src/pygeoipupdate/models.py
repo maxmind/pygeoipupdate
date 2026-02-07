@@ -46,7 +46,13 @@ class UpdateResult:
         """Convert to dictionary for JSON serialization.
 
         Returns:
-            Dictionary representation suitable for JSON output.
+            Dictionary with the following keys:
+
+            - ``edition_id`` (str): Always present.
+            - ``old_hash`` (str): Always present.
+            - ``new_hash`` (str): Always present.
+            - ``modified_at`` (int): Unix epoch seconds. Omitted when None.
+            - ``checked_at`` (int): Unix epoch seconds. Omitted when None.
 
         """
         result: dict[str, Any] = {

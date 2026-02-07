@@ -145,9 +145,15 @@ class Updater:
             List of update results for each edition.
 
         Raises:
+            RuntimeError: If the updater is not used as an async context
+                manager.
             LockError: If the lock cannot be acquired.
+            AuthenticationError: If the account ID or license key is invalid.
             DownloadError: If a download fails.
             HashMismatchError: If a downloaded file fails hash verification.
+            ExceptionGroup: When ``parallelism > 1`` and there are multiple
+                editions, ``asyncio.TaskGroup`` wraps any task errors in
+                an ``ExceptionGroup``, even if only one edition fails.
 
         """
         if not self._client or not self._writer:
