@@ -323,8 +323,8 @@ class Client:
                     try:
                         last_modified = parsedate_to_datetime(lm_header)
                     except (ValueError, TypeError):
-                        logger.debug(
-                            "Failed to parse Last-Modified header: %r",
+                        logger.warning(
+                            "Failed to parse Last-Modified header: %s",
                             lm_header,
                         )
 

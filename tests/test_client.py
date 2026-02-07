@@ -268,6 +268,44 @@ class TestClient:
                 await client.download("GeoLite2-City", "old_hash")
 
     @pytest.mark.asyncio
+    async def test_download_malformed_last_modified(
+        self, httpserver: HTTPServer
+    ) -> None:
+        mmdb_content = b"test mmdb data"
+        tar_gz_data = create_test_tar_gz(mmdb_content)
+
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": "new_hash",
+                    }
+                ]
+            }
+        )
+
+        httpserver.expect_request(
+            "/geoip/databases/GeoLite2-City/download",
+        ).respond_with_data(
+            tar_gz_data,
+            content_type="application/gzip",
+            headers={"Last-Modified": "not a valid date"},
+        )
+
+        async with Client(
+            account_id=12345,
+            license_key="test_key",
+            host=httpserver.url_for("/"),
+        ) as client:
+            result = await client.download("GeoLite2-City", "old_hash")
+            assert isinstance(result, UpdateAvailable)
+            assert result.last_modified is None
+
+    @pytest.mark.asyncio
     async def test_client_requires_context_manager(self) -> None:
         client = Client(account_id=12345, license_key="test_key")
 
