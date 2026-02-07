@@ -10,9 +10,24 @@ import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Self
 
+import aiohttp
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception,
+    stop_after_delay,
+    wait_exponential,
+)
+
 from pygeoipupdate._file_lock import FileLock
 from pygeoipupdate._file_writer import LocalFileWriter
 from pygeoipupdate.client import Client, NoUpdateAvailable
+from pygeoipupdate.errors import (
+    AuthenticationError,
+    DownloadError,
+    HashMismatchError,
+    HTTPError,
+)
 from pygeoipupdate.models import UpdateResult
 
 if TYPE_CHECKING:
@@ -26,6 +41,36 @@ def _cleanup_temp_file(temp_path: str) -> None:
         os.unlink(temp_path)
     except OSError:
         logger.warning("Failed to clean up temp file: %s", temp_path, exc_info=True)
+
+
+def _is_retryable_error(exception: BaseException) -> bool:
+    """Determine if an exception is retryable.
+
+    Args:
+        exception: The exception to check.
+
+    Returns:
+        True if the exception should trigger a retry.
+
+    """
+    if isinstance(exception, HashMismatchError):
+        return True
+    # HTTPError and AuthenticationError are DownloadError subclasses;
+    # check them before the generic DownloadError catch-all.
+    if isinstance(exception, HTTPError):
+        # Only 5xx (server) errors are retryable
+        return exception.status_code >= 500
+    if isinstance(exception, AuthenticationError):
+        return False
+    # Subclasses (HTTPError, AuthenticationError) are checked above.
+    # Remaining DownloadErrors are retryable only if caused by a transient
+    # network issue (e.g., ContentTypeError from a load balancer returning HTML).
+    if isinstance(exception, DownloadError):
+        return isinstance(exception.__cause__, aiohttp.ClientError)
+    # Network errors, timeouts, etc. are retryable.
+    # ConnectionError (not the broader OSError) covers network-related failures
+    # without retrying on disk full, permission denied, etc.
+    return isinstance(exception, (aiohttp.ClientError, TimeoutError, ConnectionError))
 
 
 class Updater:
@@ -69,7 +114,6 @@ class Updater:
                 license_key=self._config.license_key,
                 host=self._config.host,
                 proxy=self._config.proxy,
-                retry_for=self._config.retry_for,
             )
             self._client = await self._exit_stack.enter_async_context(client)
 
@@ -161,7 +205,41 @@ class Updater:
         return list(results)
 
     async def _download_edition(self, edition_id: str) -> UpdateResult:
-        """Download a single database edition.
+        """Download a single database edition with retry.
+
+        Args:
+            edition_id: The database edition ID.
+
+        Returns:
+            Update result for the edition.
+
+        """
+        retry_for = self._config.retry_for
+        if retry_for and retry_for.total_seconds() > 0:
+            return await self._download_edition_with_retry(
+                edition_id, retry_for.total_seconds()
+            )
+        return await self._download_edition_once(edition_id)
+
+    async def _download_edition_with_retry(
+        self, edition_id: str, retry_seconds: float
+    ) -> UpdateResult:
+        """Download with retry wrapping the entire operation."""
+
+        @retry(
+            stop=stop_after_delay(retry_seconds),
+            wait=wait_exponential(multiplier=1, min=1, max=60),
+            retry=retry_if_exception(_is_retryable_error),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+        async def _retry_wrapper() -> UpdateResult:
+            return await self._download_edition_once(edition_id)
+
+        return await _retry_wrapper()
+
+    async def _download_edition_once(self, edition_id: str) -> UpdateResult:
+        """Download a single database edition (one attempt).
 
         Args:
             edition_id: The database edition ID.
@@ -177,7 +255,7 @@ class Updater:
         # Get current hash
         old_hash = self._writer.get_hash(edition_id)
 
-        # Download (client handles retry internally)
+        # Download
         response = await self._client.download(
             edition_id, old_hash, self._config.database_directory
         )

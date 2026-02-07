@@ -9,23 +9,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import Self
 from urllib.parse import quote, urlencode
 
 import aiohttp
-from tenacity import (
-    retry,
-    retry_if_exception,
-    stop_after_delay,
-    wait_exponential,
-)
 
 from pygeoipupdate import __version__
 from pygeoipupdate.errors import AuthenticationError, DownloadError, HTTPError
 from pygeoipupdate.models import Metadata
-
-if TYPE_CHECKING:
-    from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -62,25 +53,6 @@ class UpdateAvailable:
 DownloadResponse = NoUpdateAvailable | UpdateAvailable
 
 
-def _is_retryable_error(exception: BaseException) -> bool:
-    """Determine if an exception is retryable.
-
-    Args:
-        exception: The exception to check.
-
-    Returns:
-        True if the exception should trigger a retry.
-
-    """
-    if isinstance(exception, HTTPError):
-        # Only 5xx (server) errors are retryable
-        return exception.status_code >= 500
-    if isinstance(exception, AuthenticationError):
-        return False
-    # Network errors, timeouts, etc. are retryable
-    return isinstance(exception, (aiohttp.ClientError, TimeoutError, OSError))
-
-
 class Client:
     """Async HTTP client for MaxMind GeoIP update service.
 
@@ -98,7 +70,6 @@ class Client:
         *,
         host: str = "https://updates.maxmind.com",
         proxy: str | None = None,
-        retry_for: timedelta | None = None,
     ) -> None:
         """Initialize the client.
 
@@ -107,14 +78,12 @@ class Client:
             license_key: MaxMind license key.
             host: Update server URL.
             proxy: Proxy URL (http, https, or socks5).
-            retry_for: Duration to retry failed requests.
 
         """
         self._account_id = account_id
         self._license_key = license_key
         self._host = host.rstrip("/")
         self._proxy = proxy
-        self._retry_for = retry_for
         self._session: aiohttp.ClientSession | None = None
         self._auth: aiohttp.BasicAuth | None = None
 
@@ -151,26 +120,6 @@ class Client:
             DownloadError: If the request fails.
 
         """
-        if self._retry_for:
-            return await self._get_metadata_with_retry(edition_id)
-        return await self._get_metadata(edition_id)
-
-    async def _get_metadata_with_retry(self, edition_id: str) -> Metadata:
-        """Get metadata with retry logic."""
-
-        @retry(
-            stop=stop_after_delay(self._retry_for.total_seconds()),
-            wait=wait_exponential(multiplier=1, min=1, max=60),
-            retry=retry_if_exception(_is_retryable_error),
-            reraise=True,
-        )
-        async def _retry_wrapper() -> Metadata:
-            return await self._get_metadata(edition_id)
-
-        return await _retry_wrapper()
-
-    async def _get_metadata(self, edition_id: str) -> Metadata:
-        """Get metadata without retry."""
         if not self._session:
             msg = "Client must be used as async context manager"
             raise RuntimeError(msg)
@@ -201,12 +150,16 @@ class Client:
                     msg = f"Response does not contain edition {edition_id}"
                     raise DownloadError(msg)
 
-                db = databases[0]
-                return Metadata(
-                    edition_id=db["edition_id"],
-                    date=db["date"],
-                    md5=db["md5"],
-                )
+                try:
+                    db = databases[0]
+                    return Metadata(
+                        edition_id=db["edition_id"],
+                        date=db["date"],
+                        md5=db["md5"],
+                    )
+                except (KeyError, IndexError) as e:
+                    msg = f"Malformed metadata response: missing field {e}"
+                    raise DownloadError(msg) from e
         except aiohttp.ClientError as e:
             msg = f"Failed to fetch metadata: {e}"
             raise DownloadError(msg) from e
@@ -234,40 +187,8 @@ class Client:
             DownloadError: If the request fails.
 
         """
-        if self._retry_for:
-            return await self._download_with_retry(
-                edition_id, current_md5, temp_dir
-            )
-        return await self._download(edition_id, current_md5, temp_dir)
-
-    async def _download_with_retry(
-        self,
-        edition_id: str,
-        current_md5: str,
-        temp_dir: Path,
-    ) -> DownloadResponse:
-        """Download with retry logic."""
-
-        @retry(
-            stop=stop_after_delay(self._retry_for.total_seconds()),
-            wait=wait_exponential(multiplier=1, min=1, max=60),
-            retry=retry_if_exception(_is_retryable_error),
-            reraise=True,
-        )
-        async def _retry_wrapper() -> DownloadResponse:
-            return await self._download(edition_id, current_md5, temp_dir)
-
-        return await _retry_wrapper()
-
-    async def _download(
-        self,
-        edition_id: str,
-        current_md5: str,
-        temp_dir: Path,
-    ) -> DownloadResponse:
-        """Download without retry."""
         # First get metadata to check if update is needed
-        metadata = await self._get_metadata(edition_id)
+        metadata = await self.get_metadata(edition_id)
 
         if metadata.md5 == current_md5:
             return NoUpdateAvailable(md5=current_md5)

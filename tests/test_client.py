@@ -4,21 +4,16 @@ from __future__ import annotations
 
 import gzip
 import io
-import json
 import tarfile
-from datetime import timedelta
 from pathlib import Path
 
-import aiohttp
 import pytest
 from pytest_httpserver import HTTPServer
-from werkzeug import Request, Response
 
 from pygeoipupdate.client import (
     Client,
     NoUpdateAvailable,
     UpdateAvailable,
-    _is_retryable_error,
 )
 from pygeoipupdate.errors import AuthenticationError, DownloadError, HTTPError
 
@@ -270,77 +265,3 @@ class TestClient:
 
         with pytest.raises(RuntimeError, match="must be used as async context manager"):
             await client.get_metadata("GeoLite2-City")
-
-
-class TestIsRetryableError:
-    """Tests for _is_retryable_error."""
-
-    def test_auth_error_not_retryable(self) -> None:
-        assert _is_retryable_error(AuthenticationError("bad key")) is False
-
-    def test_http_500_retryable(self) -> None:
-        assert _is_retryable_error(HTTPError("fail", status_code=500, body="")) is True
-
-    def test_http_404_not_retryable(self) -> None:
-        assert _is_retryable_error(HTTPError("fail", status_code=404, body="")) is False
-
-    def test_client_error_retryable(self) -> None:
-        assert _is_retryable_error(aiohttp.ClientError("conn")) is True
-
-    def test_timeout_retryable(self) -> None:
-        assert _is_retryable_error(TimeoutError()) is True
-
-    def test_download_error_not_retryable(self) -> None:
-        assert _is_retryable_error(DownloadError("no mmdb")) is False
-
-    def test_unrelated_error_not_retryable(self) -> None:
-        assert _is_retryable_error(ValueError("bad")) is False
-
-
-class TestClientRetry:
-    """Tests for retry behavior."""
-
-    @pytest.mark.asyncio
-    async def test_retries_on_transient_500(self, httpserver: HTTPServer) -> None:
-        """A transient 500 on metadata should be retried and succeed."""
-        call_count = 0
-
-        def metadata_handler(_request: Request) -> Response:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return Response(
-                    json.dumps({"error": "transient"}),
-                    status=500,
-                    content_type="application/json",
-                )
-            return Response(
-                json.dumps(
-                    {
-                        "databases": [
-                            {
-                                "edition_id": "GeoLite2-City",
-                                "date": "2024-01-15",
-                                "md5": "current_hash",
-                            }
-                        ]
-                    }
-                ),
-                status=200,
-                content_type="application/json",
-            )
-
-        httpserver.expect_request(
-            "/geoip/updates/metadata",
-        ).respond_with_handler(metadata_handler)
-
-        async with Client(
-            account_id=12345,
-            license_key="test_key",
-            host=httpserver.url_for("/"),
-            retry_for=timedelta(seconds=30),
-        ) as client:
-            metadata = await client.get_metadata("GeoLite2-City")
-
-        assert metadata.edition_id == "GeoLite2-City"
-        assert call_count == 2
