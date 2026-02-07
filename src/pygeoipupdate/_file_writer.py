@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import logging
 import os
+import tarfile
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from pygeoipupdate.errors import HashMismatchError
+from pygeoipupdate.errors import DownloadError, HashMismatchError
 
 logger = logging.getLogger(__name__)
 
@@ -76,34 +78,29 @@ class LocalFileWriter:
     def write(
         self,
         edition_id: str,
-        data: bytes,
+        compressed_path: Path,
         expected_md5: str,
         last_modified: datetime | None = None,
     ) -> None:
-        """Write database data to a file atomically.
+        """Write the database file atomically from a tar.gz archive.
+
+        Extracts the .mmdb entry from the archive file to a temporary
+        file while computing the MD5 hash, then validates and atomically
+        renames.
 
         Args:
             edition_id: The database edition ID.
-            data: The database file contents.
-            expected_md5: Expected MD5 hash of the data.
+            compressed_path: Path to the tar.gz archive file.
+            expected_md5: Expected MD5 hash of the extracted MMDB data.
             last_modified: Optional timestamp to set as the file's mtime.
 
         Raises:
             HashMismatchError: If the data hash doesn't match expected_md5.
+            DownloadError: If the archive doesn't contain an MMDB file.
             OSError: If file operations fail.
 
         """
         final_path = self._get_file_path(edition_id)
-
-        # Verify hash of data before writing
-        actual_md5 = hashlib.md5(data).hexdigest()
-
-        if actual_md5.lower() != expected_md5.lower():
-            msg = (
-                f"MD5 of new database ({actual_md5}) "
-                f"does not match expected MD5 ({expected_md5})"
-            )
-            raise HashMismatchError(msg, expected=expected_md5, actual=actual_md5)
 
         # Write to temporary file in the same directory for atomic rename
         fd, temp_path = tempfile.mkstemp(
@@ -115,28 +112,27 @@ class LocalFileWriter:
         try:
             if hasattr(os, "fchmod"):
                 os.fchmod(fd, 0o644)
-            os.write(fd, data)
+            actual_md5 = self._extract_and_write(fd, compressed_path)
             os.fsync(fd)
         except Exception:
             os.close(fd)
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                logger.warning(
-                    "Failed to clean up temp file: %s", temp_path, exc_info=True
-                )
+            self._cleanup_temp_file(temp_path)
             raise
         os.close(fd)
+
+        # Validate hash after writing
+        if actual_md5.lower() != expected_md5.lower():
+            self._cleanup_temp_file(temp_path)
+            msg = (
+                f"MD5 of new database ({actual_md5}) "
+                f"does not match expected MD5 ({expected_md5})"
+            )
+            raise HashMismatchError(msg, expected=expected_md5, actual=actual_md5)
 
         try:
             os.replace(temp_path, final_path)
         except Exception:
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                logger.warning(
-                    "Failed to clean up temp file: %s", temp_path, exc_info=True
-                )
+            self._cleanup_temp_file(temp_path)
             raise
 
         # After the atomic rename, the database is correctly placed.
@@ -159,6 +155,52 @@ class LocalFileWriter:
                 "Database %s successfully updated: %s", edition_id, expected_md5
             )
 
+    @staticmethod
+    def _extract_and_write(fd: int, compressed_path: Path) -> str:
+        """Extract the .mmdb from a tar.gz and write it to fd, returning MD5.
+
+        Args:
+            fd: File descriptor to write to.
+            compressed_path: Path to the tar.gz archive file.
+
+        Returns:
+            The MD5 hex digest of the written data.
+
+        Raises:
+            DownloadError: If the archive is corrupt, does not contain an .mmdb
+                file, or the .mmdb entry cannot be extracted.
+
+        """
+        md5_hash = hashlib.md5()
+        try:
+            with (
+                gzip.open(compressed_path, "rb") as gz,
+                tarfile.open(fileobj=gz, mode="r|") as tar,
+            ):
+                for member in tar:
+                    if member.name.endswith(".mmdb"):
+                        try:
+                            extracted = tar.extractfile(member)
+                        except tarfile.StreamError as e:
+                            msg = f"Failed to extract {member.name}: {e}"
+                            raise DownloadError(msg) from e
+                        if not extracted:
+                            msg = (
+                                f"Archive member {member.name} is not a"
+                                " regular file (may be a symlink or"
+                                " directory)"
+                            )
+                            raise DownloadError(msg)
+                        while chunk := extracted.read(8192):
+                            os.write(fd, chunk)
+                            md5_hash.update(chunk)
+                        return md5_hash.hexdigest()
+        except (gzip.BadGzipFile, tarfile.TarError) as e:
+            msg = f"Failed to extract database from archive: {e}"
+            raise DownloadError(msg) from e
+
+        raise DownloadError("tar archive does not contain an mmdb file")
+
     def _get_file_path(self, edition_id: str) -> Path:
         """Get the file path for a database edition.
 
@@ -176,6 +218,13 @@ class LocalFileWriter:
             msg = f"Invalid edition_id: {edition_id}"
             raise ValueError(msg)
         return self._dir / f"{edition_id}.mmdb"
+
+    @staticmethod
+    def _cleanup_temp_file(temp_path: str) -> None:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            logger.warning("Failed to clean up temp file: %s", temp_path, exc_info=True)
 
     def _sync_dir(self, path: Path) -> None:
         """Sync directory to ensure rename is persisted.

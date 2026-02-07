@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Self
 
@@ -18,6 +19,13 @@ if TYPE_CHECKING:
     from pygeoipupdate.config import Config
 
 logger = logging.getLogger(__name__)
+
+
+def _cleanup_temp_file(temp_path: str) -> None:
+    try:
+        os.unlink(temp_path)
+    except OSError:
+        logger.warning("Failed to clean up temp file: %s", temp_path, exc_info=True)
 
 
 class Updater:
@@ -170,7 +178,9 @@ class Updater:
         old_hash = self._writer.get_hash(edition_id)
 
         # Download (client handles retry internally)
-        response = await self._client.download(edition_id, old_hash)
+        response = await self._client.download(
+            edition_id, old_hash, self._config.database_directory
+        )
 
         checked_at = datetime.now(timezone.utc)
 
@@ -189,13 +199,16 @@ class Updater:
         if self._config.verbose:
             logger.info("Updates available for %s", edition_id)
 
-        # Write the database
-        self._writer.write(
-            edition_id,
-            response.data,
-            response.md5,
-            response.last_modified,
-        )
+        # Write the database, cleaning up the download temp file afterward
+        try:
+            self._writer.write(
+                edition_id,
+                response.compressed_path,
+                response.md5,
+                response.last_modified,
+            )
+        finally:
+            _cleanup_temp_file(str(response.compressed_path))
 
         return UpdateResult(
             edition_id=edition_id,

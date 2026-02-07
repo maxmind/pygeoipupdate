@@ -88,6 +88,9 @@ class TestUpdater:
         assert db_file.exists()
         assert db_file.read_bytes() == mmdb_content
 
+        # Verify no .download temp files remain
+        assert list(tmp_path.glob("*.download")) == []
+
     @pytest.mark.asyncio
     async def test_no_update_needed(
         self, httpserver: HTTPServer, tmp_path: Path

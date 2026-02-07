@@ -7,6 +7,7 @@ import io
 import json
 import tarfile
 from datetime import timedelta
+from pathlib import Path
 
 import aiohttp
 import pytest
@@ -17,7 +18,6 @@ from pygeoipupdate.client import (
     Client,
     NoUpdateAvailable,
     UpdateAvailable,
-    _extract_mmdb_from_tar_gz,
     _is_retryable_error,
 )
 from pygeoipupdate.errors import AuthenticationError, DownloadError, HTTPError
@@ -40,53 +40,6 @@ def create_test_tar_gz(mmdb_content: bytes = b"test mmdb content") -> bytes:
         gz.write(tar_data)
 
     return gz_buffer.getvalue()
-
-
-class TestExtractMmdbFromTarGz:
-    """Tests for _extract_mmdb_from_tar_gz."""
-
-    def test_extracts_mmdb(self) -> None:
-        content = b"test mmdb data"
-        tar_gz = create_test_tar_gz(content)
-
-        result = _extract_mmdb_from_tar_gz(tar_gz)
-
-        assert result == content
-
-    def test_no_mmdb_file(self) -> None:
-        # Create tar.gz without mmdb file
-        tar_buffer = io.BytesIO()
-        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
-            info = tarfile.TarInfo(name="README.txt")
-            info.size = 4
-            tar.addfile(info, io.BytesIO(b"test"))
-
-        gz_buffer = io.BytesIO()
-        with gzip.GzipFile(fileobj=gz_buffer, mode="wb") as gz:
-            gz.write(tar_buffer.getvalue())
-
-        with pytest.raises(DownloadError, match="does not contain an mmdb file"):
-            _extract_mmdb_from_tar_gz(gz_buffer.getvalue())
-
-    def test_mmdb_symlink_not_extractable(self) -> None:
-        """A symlink .mmdb entry should give a specific error."""
-        tar_buffer = io.BytesIO()
-        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
-            info = tarfile.TarInfo(name="GeoLite2-City/GeoLite2-City.mmdb")
-            info.type = tarfile.SYMTYPE
-            info.linkname = "nonexistent"
-            tar.addfile(info)
-
-        gz_buffer = io.BytesIO()
-        with gzip.GzipFile(fileobj=gz_buffer, mode="wb") as gz:
-            gz.write(tar_buffer.getvalue())
-
-        with pytest.raises(DownloadError, match="could not be extracted"):
-            _extract_mmdb_from_tar_gz(gz_buffer.getvalue())
-
-    def test_invalid_gzip(self) -> None:
-        with pytest.raises(DownloadError, match="Failed to extract"):
-            _extract_mmdb_from_tar_gz(b"not valid gzip data")
 
 
 class TestClient:
@@ -171,7 +124,9 @@ class TestClient:
                 await client.get_metadata("GeoLite2-City")
 
     @pytest.mark.asyncio
-    async def test_download_no_update_needed(self, httpserver: HTTPServer) -> None:
+    async def test_download_no_update_needed(
+        self, httpserver: HTTPServer, tmp_path: Path
+    ) -> None:
         httpserver.expect_request(
             "/geoip/updates/metadata",
         ).respond_with_json(
@@ -191,13 +146,15 @@ class TestClient:
             license_key="test_key",
             host=httpserver.url_for("/"),
         ) as client:
-            response = await client.download("GeoLite2-City", "current_hash")
+            response = await client.download("GeoLite2-City", "current_hash", tmp_path)
 
             assert isinstance(response, NoUpdateAvailable)
             assert response.md5 == "current_hash"
 
     @pytest.mark.asyncio
-    async def test_download_with_update(self, httpserver: HTTPServer) -> None:
+    async def test_download_with_update(
+        self, httpserver: HTTPServer, tmp_path: Path
+    ) -> None:
         mmdb_content = b"new mmdb data here"
         tar_gz_data = create_test_tar_gz(mmdb_content)
 
@@ -229,15 +186,17 @@ class TestClient:
             license_key="test_key",
             host=httpserver.url_for("/"),
         ) as client:
-            response = await client.download("GeoLite2-City", "old_hash")
+            response = await client.download("GeoLite2-City", "old_hash", tmp_path)
 
             assert isinstance(response, UpdateAvailable)
-            assert response.data == mmdb_content
+            assert response.compressed_path.read_bytes() == tar_gz_data
             assert response.md5 == "new_hash"
             assert response.last_modified is not None
 
     @pytest.mark.asyncio
-    async def test_download_auth_error(self, httpserver: HTTPServer) -> None:
+    async def test_download_auth_error(
+        self, httpserver: HTTPServer, tmp_path: Path
+    ) -> None:
         httpserver.expect_request(
             "/geoip/updates/metadata",
         ).respond_with_json(
@@ -265,11 +224,11 @@ class TestClient:
             host=httpserver.url_for("/"),
         ) as client:
             with pytest.raises(AuthenticationError):
-                await client.download("GeoLite2-City", "old_hash")
+                await client.download("GeoLite2-City", "old_hash", tmp_path)
 
     @pytest.mark.asyncio
     async def test_download_malformed_last_modified(
-        self, httpserver: HTTPServer
+        self, httpserver: HTTPServer, tmp_path: Path
     ) -> None:
         mmdb_content = b"test mmdb data"
         tar_gz_data = create_test_tar_gz(mmdb_content)
@@ -301,7 +260,7 @@ class TestClient:
             license_key="test_key",
             host=httpserver.url_for("/"),
         ) as client:
-            result = await client.download("GeoLite2-City", "old_hash")
+            result = await client.download("GeoLite2-City", "old_hash", tmp_path)
             assert isinstance(result, UpdateAvailable)
             assert result.last_modified is None
 

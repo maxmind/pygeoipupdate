@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import gzip
-import io
 import logging
-import tarfile
+import os
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Self
 from urllib.parse import quote, urlencode
 
@@ -47,14 +47,14 @@ class UpdateAvailable:
     """Returned when a newer database was downloaded.
 
     Attributes:
-        data: The MMDB file data.
+        compressed_path: Path to the downloaded tar.gz temp file.
         md5: Expected MD5 hash from the metadata response, used to verify
             the downloaded database.
         last_modified: The last modified timestamp from the server.
 
     """
 
-    data: bytes
+    compressed_path: Path
     md5: str
     last_modified: datetime | None
 
@@ -215,6 +215,7 @@ class Client:
         self,
         edition_id: str,
         current_md5: str,
+        temp_dir: Path,
     ) -> DownloadResponse:
         """Download a database edition.
 
@@ -222,6 +223,7 @@ class Client:
             edition_id: The database edition ID (e.g., "GeoLite2-City").
             current_md5: MD5 hash of the current local database. Any value
                 that does not match the server's hash triggers a download.
+            temp_dir: Directory in which to create the download temp file.
 
         Returns:
             Download response with the database data.
@@ -233,13 +235,16 @@ class Client:
 
         """
         if self._retry_for:
-            return await self._download_with_retry(edition_id, current_md5)
-        return await self._download(edition_id, current_md5)
+            return await self._download_with_retry(
+                edition_id, current_md5, temp_dir
+            )
+        return await self._download(edition_id, current_md5, temp_dir)
 
     async def _download_with_retry(
         self,
         edition_id: str,
         current_md5: str,
+        temp_dir: Path,
     ) -> DownloadResponse:
         """Download with retry logic."""
 
@@ -250,7 +255,7 @@ class Client:
             reraise=True,
         )
         async def _retry_wrapper() -> DownloadResponse:
-            return await self._download(edition_id, current_md5)
+            return await self._download(edition_id, current_md5, temp_dir)
 
         return await _retry_wrapper()
 
@@ -258,6 +263,7 @@ class Client:
         self,
         edition_id: str,
         current_md5: str,
+        temp_dir: Path,
     ) -> DownloadResponse:
         """Download without retry."""
         # First get metadata to check if update is needed
@@ -267,10 +273,12 @@ class Client:
             return NoUpdateAvailable(md5=current_md5)
 
         # Download the database
-        data, last_modified = await self._fetch_database(edition_id, metadata.date)
+        compressed_path, last_modified = await self._fetch_database(
+            edition_id, metadata.date, temp_dir
+        )
 
         return UpdateAvailable(
-            data=data,
+            compressed_path=compressed_path,
             md5=metadata.md5,
             last_modified=last_modified,
         )
@@ -279,15 +287,18 @@ class Client:
         self,
         edition_id: str,
         date: str,
-    ) -> tuple[bytes, datetime | None]:
-        """Fetch the database file.
+        temp_dir: Path,
+    ) -> tuple[Path, datetime | None]:
+        """Fetch the database file, streaming to a temp file.
 
         Args:
             edition_id: The database edition ID.
             date: The database date in YYYY-MM-DD format.
+            temp_dir: Directory in which to create the download temp file.
 
         Returns:
-            Tuple of (mmdb file data, last modified timestamp).
+            Tuple of (path to temp file containing compressed tar.gz, last
+            modified timestamp).
 
         """
         if not self._session:
@@ -328,52 +339,33 @@ class Client:
                             lm_header,
                         )
 
-                # Read and extract the tar.gz
-                compressed_data = await response.read()
-                mmdb_data = _extract_mmdb_from_tar_gz(compressed_data)
+                # Stream response body to a temp file
+                fd, temp_path = tempfile.mkstemp(
+                    suffix=".download",
+                    prefix=f"{edition_id}_",
+                    dir=temp_dir,
+                )
+                try:
+                    async for chunk in response.content.iter_chunked(
+                        64 * 1024,
+                    ):
+                        os.write(fd, chunk)
+                    os.fsync(fd)
+                except BaseException:
+                    os.close(fd)
+                    _cleanup_temp_file(temp_path)
+                    raise
+                os.close(fd)
 
-                return mmdb_data, last_modified
+                return Path(temp_path), last_modified
 
         except aiohttp.ClientError as e:
             msg = f"Failed to download database: {e}"
             raise DownloadError(msg) from e
 
 
-def _extract_mmdb_from_tar_gz(data: bytes) -> bytes:
-    """Extract the .mmdb file from a tar.gz archive.
-
-    Args:
-        data: The compressed tar.gz data.
-
-    Returns:
-        The extracted MMDB file data.
-
-    Raises:
-        DownloadError: If no .mmdb file is found in the archive.
-
-    """
-    found_mmdb = False
+def _cleanup_temp_file(temp_path: str) -> None:
     try:
-        with gzip.GzipFile(fileobj=io.BytesIO(data)) as gz:
-            with tarfile.open(fileobj=gz, mode="r|") as tar:
-                for member in tar:
-                    if member.name.endswith(".mmdb"):
-                        found_mmdb = True
-                        try:
-                            extracted = tar.extractfile(member)
-                        except tarfile.StreamError:
-                            continue
-                        if extracted:
-                            return extracted.read()
-    except (gzip.BadGzipFile, tarfile.TarError) as e:
-        msg = f"Failed to extract database from archive: {e}"
-        raise DownloadError(msg) from e
-
-    if found_mmdb:
-        msg = (
-            "tar archive contains an mmdb entry "
-            "but it could not be extracted (may be a symlink)"
-        )
-    else:
-        msg = "tar archive does not contain an mmdb file"
-    raise DownloadError(msg)
+        os.unlink(temp_path)
+    except OSError:
+        logger.warning("Failed to clean up temp file: %s", temp_path, exc_info=True)
