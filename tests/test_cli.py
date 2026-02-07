@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import io
+import json
 import tarfile
 from pathlib import Path
 
@@ -205,8 +206,14 @@ DatabaseDirectory {tmp_path}
         result = runner.invoke(main, ["-f", str(config_file), "-o"])
 
         assert result.exit_code == 0
-        assert "edition_id" in result.output
-        assert "GeoLite2-City" in result.output
+        output = json.loads(result.output)
+        assert len(output) == 1
+        assert output[0]["edition_id"] == "GeoLite2-City"
+        assert output[0]["new_hash"] == mmdb_hash
+        # Timestamps must be Unix epoch integers, not ISO 8601 strings
+        assert isinstance(output[0]["checked_at"], int)
+        if "modified_at" in output[0]:
+            assert isinstance(output[0]["modified_at"], int)
 
     def test_auth_error(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         httpserver.expect_request(

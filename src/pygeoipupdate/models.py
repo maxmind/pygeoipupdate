@@ -54,10 +54,10 @@ class UpdateResult:
             "old_hash": self.old_hash,
             "new_hash": self.new_hash,
         }
-        if self.modified_at:
-            result["modified_at"] = self.modified_at.isoformat()
-        if self.checked_at:
-            result["checked_at"] = self.checked_at.isoformat()
+        if self.modified_at is not None:
+            result["modified_at"] = int(self.modified_at.timestamp())
+        if self.checked_at is not None:
+            result["checked_at"] = int(self.checked_at.timestamp())
         return result
 
     @property
