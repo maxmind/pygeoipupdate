@@ -155,9 +155,8 @@ class Updater:
             raise RuntimeError(msg)
 
         # Acquire file lock
-        if self._config.lock_file:
-            self._lock = FileLock(self._config.lock_file, verbose=self._config.verbose)
-            self._lock.acquire()
+        self._lock = FileLock(self._config.lock_file, verbose=self._config.verbose)
+        self._lock.acquire()
 
         try:
             results = await self._run_updates()

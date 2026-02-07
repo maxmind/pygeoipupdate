@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 _SCHEME_RE = re.compile(r"(?i)\A([a-z][a-z0-9+\-.]*)://")
 
+# Sentinel so __post_init__ can distinguish "caller didn't provide a
+# lock_file" from an explicit value.  Go always uses a lock file.
+_UNSET_LOCK_FILE = Path("\x00unset")
+
 
 @dataclass(frozen=True)
 class Config:
@@ -35,6 +39,7 @@ class Config:
         proxy: Proxy URL (http, https, or socks5).
         preserve_file_times: Whether to preserve file modification times.
         lock_file: Path to lock file for preventing concurrent runs.
+            Defaults to ``<database_directory>/.geoipupdate.lock``.
         retry_for: Duration to retry failed downloads.
         parallelism: Number of parallel downloads.
         verbose: Enable verbose output.
@@ -49,7 +54,7 @@ class Config:
     host: str = "https://updates.maxmind.com"
     proxy: str | None = None
     preserve_file_times: bool = False
-    lock_file: Path | None = None
+    lock_file: Path = field(default_factory=lambda: _UNSET_LOCK_FILE)
     retry_for: timedelta = field(default_factory=lambda: timedelta(minutes=5))
     parallelism: int = 1
     verbose: bool = False
@@ -57,7 +62,7 @@ class Config:
 
     def __post_init__(self) -> None:
         """Validate and set derived values after initialization."""
-        if self.lock_file is None:
+        if self.lock_file is _UNSET_LOCK_FILE:
             object.__setattr__(
                 self, "lock_file", self.database_directory / ".geoipupdate.lock"
             )
@@ -149,24 +154,23 @@ class Config:
         config_data.pop("_proxy_url", None)
         config_data.pop("_proxy_user_password", None)
 
-        lock_file = None
+        kwargs: dict[str, object] = {
+            "account_id": int(config_data["account_id"]),  # type: ignore[arg-type]
+            "license_key": str(config_data["license_key"]),
+            "edition_ids": tuple(config_data["edition_ids"]),  # type: ignore[arg-type]
+            "database_directory": Path(config_data["database_directory"]),  # type: ignore[arg-type]
+            "host": str(config_data["host"]),
+            "proxy": config_data.get("proxy"),
+            "preserve_file_times": bool(config_data.get("preserve_file_times", False)),
+            "retry_for": config_data["retry_for"],
+            "parallelism": int(config_data["parallelism"]),  # type: ignore[arg-type]
+            "verbose": bool(config_data.get("verbose", False)),
+            "output": bool(config_data.get("output", False)),
+        }
         if config_data.get("lock_file"):
-            lock_file = Path(config_data["lock_file"])  # type: ignore[arg-type]
+            kwargs["lock_file"] = Path(config_data["lock_file"])  # type: ignore[arg-type]
 
-        return cls(
-            account_id=int(config_data["account_id"]),  # type: ignore[arg-type]
-            license_key=str(config_data["license_key"]),
-            edition_ids=list(config_data["edition_ids"]),  # type: ignore[arg-type]
-            database_directory=Path(config_data["database_directory"]),  # type: ignore[arg-type]
-            host=str(config_data["host"]),
-            proxy=config_data.get("proxy"),  # type: ignore[arg-type]
-            preserve_file_times=bool(config_data.get("preserve_file_times", False)),
-            lock_file=lock_file,
-            retry_for=config_data["retry_for"],  # type: ignore[arg-type]
-            parallelism=int(config_data["parallelism"]),  # type: ignore[arg-type]
-            verbose=bool(config_data.get("verbose", False)),
-            output=bool(config_data.get("output", False)),
-        )
+        return cls(**kwargs)  # type: ignore[arg-type]
 
 
 def _parse_config_file(path: Path) -> dict[str, object]:
