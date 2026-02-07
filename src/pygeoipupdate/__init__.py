@@ -4,7 +4,6 @@ from __future__ import annotations
 
 __version__ = "1.0.0"
 
-from pygeoipupdate.client import Client
 from pygeoipupdate.config import Config
 from pygeoipupdate.errors import (
     AuthenticationError,
@@ -15,12 +14,11 @@ from pygeoipupdate.errors import (
     HTTPError,
     LockError,
 )
-from pygeoipupdate.models import Metadata, UpdateResult
+from pygeoipupdate.models import UpdateResult
 from pygeoipupdate.updater import Updater
 
 __all__ = [
     "AuthenticationError",
-    "Client",
     "Config",
     "ConfigError",
     "DownloadError",
@@ -28,7 +26,6 @@ __all__ = [
     "HTTPError",
     "HashMismatchError",
     "LockError",
-    "Metadata",
     "UpdateResult",
     "Updater",
     "__version__",
