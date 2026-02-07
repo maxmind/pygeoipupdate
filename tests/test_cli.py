@@ -243,6 +243,29 @@ DatabaseDirectory {tmp_path}
         assert result.exit_code == 1
         assert "Authentication error" in result.output
 
+    def test_parallel_auth_error(self, httpserver: HTTPServer, tmp_path: Path) -> None:
+        """Parallel errors (ExceptionGroup) should produce clean CLI output."""
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+        ).respond_with_json({"error": "Invalid"}, status=401)
+
+        config_file = tmp_path / "GeoIP.conf"
+        config_file.write_text(f"""AccountID 12345
+LicenseKey bad_key
+EditionIDs GeoLite2-City GeoLite2-Country
+Host {httpserver.url_for("/")}
+DatabaseDirectory {tmp_path}
+Parallelism 2
+""")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["-f", str(config_file)])
+
+        assert result.exit_code == 1
+        assert "Authentication error" in result.output
+        assert "ExceptionGroup" not in result.output
+        assert "Traceback" not in result.output
+
     def test_env_var_config(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         mmdb_content = b"test mmdb data"
         mmdb_hash = hashlib.md5(mmdb_content).hexdigest()

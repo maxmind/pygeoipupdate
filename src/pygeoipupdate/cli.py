@@ -21,6 +21,8 @@ from pygeoipupdate.errors import (
 )
 from pygeoipupdate.updater import Updater
 
+logger = logging.getLogger(__name__)
+
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
@@ -97,8 +99,6 @@ def main(
             format="%(message)s",
         )
 
-    logger = logging.getLogger(__name__)
-
     try:
         config = Config.from_file(
             config_file=config_file,
@@ -117,23 +117,44 @@ def main(
             logger.info("Using config file %s", config_file)
         logger.info("Using database directory %s", config.database_directory)
 
+    # except* handles both bare exceptions and ExceptionGroup-wrapped
+    # exceptions from asyncio.TaskGroup (parallel downloads). We cannot
+    # call sys.exit() inside except* handlers because SystemExit would be
+    # wrapped in another ExceptionGroup, so we record the exit code and
+    # exit after the try block.
+    exit_code = 0
     try:
         asyncio.run(_run(config))
-    except AuthenticationError as e:
-        click.echo(f"Authentication error: {e}", err=True)
-        sys.exit(1)
-    except LockError as e:
-        click.echo(f"Lock error: {e}", err=True)
-        sys.exit(1)
-    except DownloadError as e:
-        click.echo(f"Download error: {e}", err=True)
-        sys.exit(1)
-    except GeoIPUpdateError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
-    except KeyboardInterrupt:
+    except* AuthenticationError as eg:
+        for exc in eg.exceptions:
+            click.echo(f"Authentication error: {exc}", err=True)
+        exit_code = 1
+    except* LockError as eg:
+        for exc in eg.exceptions:
+            click.echo(f"Lock error: {exc}", err=True)
+        exit_code = 1
+    except* DownloadError as eg:
+        for exc in eg.exceptions:
+            click.echo(f"Download error: {exc}", err=True)
+        exit_code = 1
+    except* GeoIPUpdateError as eg:
+        for exc in eg.exceptions:
+            click.echo(f"Error: {exc}", err=True)
+        exit_code = 1
+    except* OSError as eg:
+        for exc in eg.exceptions:
+            click.echo(f"File operation error: {exc}", err=True)
+        exit_code = 1
+    except* KeyboardInterrupt:
         click.echo("\nInterrupted.", err=True)
-        sys.exit(130)
+        exit_code = 130
+    except* Exception as eg:  # noqa: BLE001
+        for exc in eg.exceptions:
+            logger.error("Unexpected error", exc_info=exc)  # noqa: TRY400
+            click.echo(f"Unexpected error ({type(exc).__name__}): {exc}", err=True)
+        exit_code = 1
+    if exit_code:
+        sys.exit(exit_code)
 
 
 async def _run(config: Config) -> None:
