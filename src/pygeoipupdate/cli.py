@@ -98,6 +98,8 @@ def main(
             format="%(message)s",
         )
 
+    logger = logging.getLogger(__name__)
+
     try:
         config = Config.from_file(
             config_file=config_file,
@@ -109,6 +111,12 @@ def main(
     except ConfigError as e:
         click.echo(f"Configuration error: {e}", err=True)
         sys.exit(1)
+
+    if verbose:
+        logger.info("pygeoipupdate version %s", __version__)
+        if config_file:
+            logger.info("Using config file %s", config_file)
+        logger.info("Using database directory %s", config.database_directory)
 
     try:
         asyncio.run(_run(config))

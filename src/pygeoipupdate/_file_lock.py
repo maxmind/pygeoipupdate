@@ -49,6 +49,8 @@ class FileLock:
 
         """
         try:
+            if self._verbose:
+                logger.info("Initializing file lock at %s", self._path)
             self._lock.acquire(timeout=timeout)
             if self._verbose:
                 logger.info("Acquired lock: %s", self._path)

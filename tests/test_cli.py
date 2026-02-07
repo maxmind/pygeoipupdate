@@ -6,9 +6,11 @@ import gzip
 import hashlib
 import io
 import json
+import logging
 import tarfile
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 from pytest_httpserver import HTTPServer
 
@@ -137,7 +139,9 @@ DatabaseDirectory {tmp_path}
         assert result.exit_code == 0
         assert (tmp_path / "GeoLite2-City.mmdb").exists()
 
-    def test_verbose_output(self, httpserver: HTTPServer, tmp_path: Path) -> None:
+    def test_verbose_output(
+        self, httpserver: HTTPServer, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         mmdb_content = b"test mmdb data"
         mmdb_hash = hashlib.md5(mmdb_content).hexdigest()
         tar_gz_data = create_test_tar_gz(mmdb_content)
@@ -168,9 +172,14 @@ DatabaseDirectory {tmp_path}
 """)
 
         runner = CliRunner()
-        result = runner.invoke(main, ["-f", str(config_file), "-v"])
+        with caplog.at_level(logging.INFO):
+            result = runner.invoke(main, ["-f", str(config_file), "-v"])
 
         assert result.exit_code == 0
+        # Verbose startup messages should include version, config file, and database directory
+        assert "pygeoipupdate version" in caplog.text
+        assert str(config_file) in caplog.text
+        assert str(tmp_path) in caplog.text
 
     def test_json_output(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         mmdb_content = b"test mmdb data"
