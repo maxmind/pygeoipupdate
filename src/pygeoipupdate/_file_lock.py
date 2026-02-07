@@ -38,11 +38,11 @@ class FileLock:
         self._verbose = verbose
         self._lock = BaseFileLock(str(path))
 
-    def acquire(self, timeout: float = -1) -> None:
+    def acquire(self, timeout: float = 0) -> None:
         """Acquire the lock.
 
         Args:
-            timeout: Timeout in seconds. -1 means wait forever.
+            timeout: Timeout in seconds. 0 means fail immediately if held.
 
         Raises:
             LockError: If the lock cannot be acquired.
