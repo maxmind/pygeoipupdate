@@ -190,7 +190,7 @@ twice per week. Here's an example cron entry:
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - A MaxMind account with a license key
 
 ## License
