@@ -33,14 +33,12 @@ from pygeoipupdate.updater import Updater
     "--database-directory",
     "-d",
     type=click.Path(path_type=Path),
-    envvar="GEOIPUPDATE_DB_DIR",
     help="Store databases in this directory (uses config if not specified).",
 )
 @click.option(
     "--verbose",
     "-v",
     is_flag=True,
-    envvar="GEOIPUPDATE_VERBOSE",
     help="Use verbose output.",
 )
 @click.option(
