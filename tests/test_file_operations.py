@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import stat
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -90,6 +91,17 @@ class TestLocalFileWriter:
         file_path = tmp_path / "GeoLite2-City.mmdb"
         assert file_path.exists()
         assert file_path.read_bytes() == content
+
+    def test_write_sets_644_permissions(self, tmp_path: Path) -> None:
+        writer = LocalFileWriter(tmp_path)
+        content = b"test mmdb content"
+        md5_hash = hashlib.md5(content).hexdigest()
+
+        writer.write("GeoLite2-City", content, md5_hash)
+
+        file_path = tmp_path / "GeoLite2-City.mmdb"
+        mode = stat.S_IMODE(file_path.stat().st_mode)
+        assert mode == 0o644
 
     def test_write_hash_mismatch(self, tmp_path: Path) -> None:
         writer = LocalFileWriter(tmp_path)

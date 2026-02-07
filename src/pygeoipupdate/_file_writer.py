@@ -113,6 +113,8 @@ class LocalFileWriter:
         )
 
         try:
+            if hasattr(os, "fchmod"):
+                os.fchmod(fd, 0o644)
             os.write(fd, data)
             os.fsync(fd)
         except Exception:
