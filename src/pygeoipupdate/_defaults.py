@@ -1,4 +1,4 @@
-"""Platform-specific default paths for geoipupdate."""
+"""Platform-specific default paths for pygeoipupdate."""
 
 from __future__ import annotations
 

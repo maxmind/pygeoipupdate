@@ -1,4 +1,4 @@
-"""Tests for geoipupdate HTTP client."""
+"""Tests for pygeoipupdate HTTP client."""
 
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug import Request, Response
 
-from geoipupdate.client import (
+from pygeoipupdate.client import (
     Client,
     NoUpdateAvailable,
     UpdateAvailable,
     _extract_mmdb_from_tar_gz,
     _is_retryable_error,
 )
-from geoipupdate.errors import AuthenticationError, DownloadError, HTTPError
+from pygeoipupdate.errors import AuthenticationError, DownloadError, HTTPError
 
 
 def create_test_tar_gz(mmdb_content: bytes = b"test mmdb content") -> bytes:

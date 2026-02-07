@@ -1,4 +1,4 @@
-"""File locking for geoipupdate."""
+"""File locking for pygeoipupdate."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Self
 from filelock import FileLock as BaseFileLock
 from filelock import Timeout
 
-from geoipupdate.errors import LockError
+from pygeoipupdate.errors import LockError
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class FileLock:
     """Cross-platform file lock for process coordination.
 
-    This ensures only one geoipupdate process runs at a time.
+    This ensures only one pygeoipupdate process runs at a time.
 
     Example:
         with FileLock(Path("/var/lib/GeoIP/.geoipupdate.lock")) as lock:

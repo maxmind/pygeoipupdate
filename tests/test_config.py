@@ -1,4 +1,4 @@
-"""Tests for geoipupdate configuration."""
+"""Tests for pygeoipupdate configuration."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from geoipupdate.config import (
+from pygeoipupdate.config import (
     Config,
     _build_proxy_url,
     _parse_config_file,
     _parse_duration,
     _parse_environment,
 )
-from geoipupdate.errors import ConfigError
+from pygeoipupdate.errors import ConfigError
 
 
 class TestParseConfigFile:
@@ -297,7 +297,7 @@ DatabaseDirectory /var/lib/GeoIP
 
         assert config.account_id == 12345
         assert config.license_key == "abc123"
-        assert config.edition_ids == ["GeoLite2-City", "GeoLite2-Country"]
+        assert config.edition_ids == ("GeoLite2-City", "GeoLite2-Country")
         assert config.database_directory == Path("/var/lib/GeoIP")
         assert config.host == "https://updates.maxmind.com"
         assert config.parallelism == 1
@@ -379,7 +379,7 @@ EditionIDs GeoLite2-City
 
         assert config.account_id == 12345
         assert config.license_key == "abc123"
-        assert config.edition_ids == ["GeoLite2-City"]
+        assert config.edition_ids == ("GeoLite2-City",)
         assert config.lock_file == Path("/var/lib/GeoIP/.geoipupdate.lock")
 
     def test_frozen(self) -> None:

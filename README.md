@@ -1,23 +1,23 @@
-# geoipupdate
+# pygeoipupdate
 
 Python client for updating MaxMind GeoIP2 and GeoLite2 databases.
 
 ## Description
 
-`geoipupdate` is a program that downloads and updates GeoIP2 and GeoLite2
+`pygeoipupdate` is a program that downloads and updates GeoIP2 and GeoLite2
 binary MMDB databases from MaxMind. This is a Python port of the
 [official Go version](https://github.com/maxmind/geoipupdate).
 
 ## Installation
 
 ```bash
-pip install geoipupdate
+pip install pygeoipupdate
 ```
 
 Or with uv:
 
 ```bash
-uv add geoipupdate
+uv add pygeoipupdate
 ```
 
 ## Quick Start
@@ -33,10 +33,10 @@ uv add geoipupdate
    export GEOIPUPDATE_EDITION_IDS="GeoLite2-City GeoLite2-Country"
    ```
 
-3. Run geoipupdate:
+3. Run pygeoipupdate:
 
    ```bash
-   geoipupdate
+   pygeoipupdate
    ```
 
 ## Usage
@@ -45,19 +45,19 @@ uv add geoipupdate
 
 ```bash
 # Using a config file
-geoipupdate -f /etc/GeoIP.conf
+pygeoipupdate -f /etc/GeoIP.conf
 
 # Using environment variables
-geoipupdate
+pygeoipupdate
 
 # Verbose output
-geoipupdate -v
+pygeoipupdate -v
 
 # JSON output (for scripting)
-geoipupdate -o
+pygeoipupdate -o
 
 # Parallel downloads
-geoipupdate --parallelism 4
+pygeoipupdate --parallelism 4
 ```
 
 ### Python API
@@ -66,7 +66,7 @@ geoipupdate --parallelism 4
 import asyncio
 from pathlib import Path
 
-from geoipupdate import Config, Updater
+from pygeoipupdate import Config, Updater
 
 config = Config(
     account_id=12345,
@@ -90,7 +90,7 @@ asyncio.run(main())
 ### Loading Configuration from File
 
 ```python
-from geoipupdate import Config, Updater
+from pygeoipupdate import Config, Updater
 
 config = Config.from_file(config_file=Path("/etc/GeoIP.conf"))
 
@@ -155,7 +155,7 @@ RetryFor 10m
 ### CLI Options
 
 ```
-geoipupdate [OPTIONS]
+pygeoipupdate [OPTIONS]
 
 Options:
   -f, --config-file PATH    Path to the configuration file
@@ -180,12 +180,12 @@ Options:
 
 ## Running as a Cron Job
 
-To keep your databases up to date, we recommend running geoipupdate at least
+To keep your databases up to date, we recommend running pygeoipupdate at least
 twice per week. Here's an example cron entry:
 
 ```cron
 # Run twice a week on Wednesday and Sunday at 3:00 AM
-0 3 * * 0,3 /usr/local/bin/geoipupdate
+0 3 * * 0,3 /usr/local/bin/pygeoipupdate
 ```
 
 ## Requirements

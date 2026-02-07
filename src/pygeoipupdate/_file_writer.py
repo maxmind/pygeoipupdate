@@ -1,4 +1,4 @@
-"""File writer for geoipupdate databases."""
+"""File writer for pygeoipupdate databases."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from geoipupdate.errors import HashMismatchError
+from pygeoipupdate.errors import HashMismatchError
 
 logger = logging.getLogger(__name__)
 
@@ -120,33 +120,42 @@ class LocalFileWriter:
             try:
                 os.unlink(temp_path)
             except OSError:
-                logger.warning("Failed to clean up temp file: %s", temp_path)
+                logger.warning(
+                    "Failed to clean up temp file: %s", temp_path, exc_info=True
+                )
             raise
         os.close(fd)
 
         try:
-            # Atomic rename
             os.replace(temp_path, final_path)
-
-            # Sync directory
-            self._sync_dir(self._dir)
-
-            # Set modification time if requested
-            if self._preserve_file_times and last_modified:
-                timestamp = last_modified.timestamp()
-                os.utime(final_path, (timestamp, timestamp))
-
-            if self._verbose:
-                logger.info(
-                    "Database %s successfully updated: %s", edition_id, expected_md5
-                )
-
         except Exception:
             try:
                 os.unlink(temp_path)
             except OSError:
-                logger.warning("Failed to clean up temp file: %s", temp_path)
+                logger.warning(
+                    "Failed to clean up temp file: %s", temp_path, exc_info=True
+                )
             raise
+
+        # After the atomic rename, the database is correctly placed.
+        # Failures in sync/utime are non-fatal.
+        self._sync_dir(self._dir)
+
+        if self._preserve_file_times and last_modified:
+            try:
+                timestamp = last_modified.timestamp()
+                os.utime(final_path, (timestamp, timestamp))
+            except OSError:
+                logger.warning(
+                    "Failed to set modification time for %s",
+                    final_path,
+                    exc_info=True,
+                )
+
+        if self._verbose:
+            logger.info(
+                "Database %s successfully updated: %s", edition_id, expected_md5
+            )
 
     def _get_file_path(self, edition_id: str) -> Path:
         """Get the file path for a database edition.
@@ -183,4 +192,4 @@ class LocalFileWriter:
                 os.close(fd)
         except OSError:
             # Some filesystems don't support directory fsync
-            logger.warning("Failed to sync directory %s", path)
+            logger.warning("Failed to sync directory %s", path, exc_info=True)

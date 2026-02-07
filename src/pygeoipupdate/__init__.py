@@ -4,9 +4,9 @@ from __future__ import annotations
 
 __version__ = "1.0.0"
 
-from geoipupdate.client import Client
-from geoipupdate.config import Config
-from geoipupdate.errors import (
+from pygeoipupdate.client import Client
+from pygeoipupdate.config import Config
+from pygeoipupdate.errors import (
     AuthenticationError,
     ConfigError,
     DownloadError,
@@ -15,8 +15,8 @@ from geoipupdate.errors import (
     HTTPError,
     LockError,
 )
-from geoipupdate.models import Metadata, UpdateResult
-from geoipupdate.updater import Updater
+from pygeoipupdate.models import Metadata, UpdateResult
+from pygeoipupdate.updater import Updater
 
 __all__ = [
     "AuthenticationError",

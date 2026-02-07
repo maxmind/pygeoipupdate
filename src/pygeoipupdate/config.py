@@ -1,7 +1,8 @@
-"""Configuration management for geoipupdate."""
+"""Configuration management for pygeoipupdate."""
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -10,23 +11,25 @@ from pathlib import Path
 from typing import Self
 from urllib.parse import urlparse, urlunparse
 
-from geoipupdate._defaults import (
+from pygeoipupdate._defaults import (
     get_default_config_file,
     get_default_database_directory,
 )
-from geoipupdate.errors import ConfigError
+from pygeoipupdate.errors import ConfigError
+
+logger = logging.getLogger(__name__)
 
 _SCHEME_RE = re.compile(r"(?i)\A([a-z][a-z0-9+\-.]*)://")
 
 
 @dataclass(frozen=True)
 class Config:
-    """Configuration for geoipupdate.
+    """Configuration for pygeoipupdate.
 
     Attributes:
         account_id: MaxMind account ID.
         license_key: MaxMind license key.
-        edition_ids: List of database edition IDs to download.
+        edition_ids: Database edition IDs to download.
         database_directory: Directory to store database files.
         host: MaxMind update server URL.
         proxy: Proxy URL (http, https, or socks5).
@@ -41,7 +44,7 @@ class Config:
 
     account_id: int
     license_key: str
-    edition_ids: list[str]
+    edition_ids: tuple[str, ...]
     database_directory: Path = field(default_factory=get_default_database_directory)
     host: str = "https://updates.maxmind.com"
     proxy: str | None = None
@@ -58,6 +61,8 @@ class Config:
             object.__setattr__(
                 self, "lock_file", self.database_directory / ".geoipupdate.lock"
             )
+        if not isinstance(self.edition_ids, tuple):
+            object.__setattr__(self, "edition_ids", tuple(self.edition_ids))
         if self.account_id < 1:
             raise ConfigError("account_id must be a positive integer")
         if not self.edition_ids:
@@ -266,8 +271,7 @@ def _set_config_value(
         config["_proxy_user_password"] = value
 
     elif key in ("Protocol", "SkipHostnameVerification", "SkipPeerVerification"):
-        # Deprecated options, ignore
-        pass
+        logger.warning("Deprecated configuration option '%s' ignored", key)
 
     elif key == "RetryFor":
         config["retry_for"] = _parse_duration(value)
@@ -306,7 +310,7 @@ def _parse_host(value: str) -> str:
         if not parsed.scheme:
             parsed = urlparse(f"https://{value}")
         return urlunparse(parsed)
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         msg = f"failed to parse Host: {e}"
         raise ConfigError(msg) from e
 
@@ -459,7 +463,7 @@ def _validate_config(config: dict[str, object]) -> None:
     license_key = config.get("license_key", "")
 
     if (account_id in (0, 999999)) and license_key == "000000000000":
-        msg = "geoipupdate requires a valid AccountID and LicenseKey combination"
+        msg = "pygeoipupdate requires a valid AccountID and LicenseKey combination"
         raise ConfigError(msg)
 
     if not config.get("edition_ids"):
@@ -507,7 +511,7 @@ def _build_proxy_url(
 
     try:
         parsed = urlparse(proxy_url)
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         msg = f"parsing proxy URL: {e}"
         raise ConfigError(msg) from e
 

@@ -1,4 +1,4 @@
-"""Update orchestration for geoipupdate."""
+"""Update orchestration for pygeoipupdate."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Self
 
-from geoipupdate._file_lock import FileLock
-from geoipupdate._file_writer import LocalFileWriter
-from geoipupdate.client import Client, NoUpdateAvailable
-from geoipupdate.models import UpdateResult
+from pygeoipupdate._file_lock import FileLock
+from pygeoipupdate._file_writer import LocalFileWriter
+from pygeoipupdate.client import Client, NoUpdateAvailable
+from pygeoipupdate.models import UpdateResult
 
 if TYPE_CHECKING:
-    from geoipupdate.config import Config
+    from pygeoipupdate.config import Config
 
 logger = logging.getLogger(__name__)
 

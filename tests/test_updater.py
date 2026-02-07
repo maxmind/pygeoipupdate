@@ -12,8 +12,8 @@ from unittest.mock import patch
 import pytest
 from pytest_httpserver import HTTPServer
 
-from geoipupdate.config import Config
-from geoipupdate.updater import Updater
+from pygeoipupdate.config import Config
+from pygeoipupdate.updater import Updater
 
 
 def create_test_tar_gz(mmdb_content: bytes = b"test mmdb content") -> bytes:
@@ -323,7 +323,7 @@ class TestUpdater:
         updater = Updater(config)
         with (
             patch(
-                "geoipupdate.updater.Client.__aenter__",
+                "pygeoipupdate.updater.Client.__aenter__",
                 side_effect=RuntimeError("connection failed"),
             ),
             pytest.raises(RuntimeError, match="connection failed"),

@@ -9,9 +9,9 @@ from unittest.mock import patch
 
 import pytest
 
-from geoipupdate._file_lock import FileLock
-from geoipupdate._file_writer import ZERO_MD5, LocalFileWriter
-from geoipupdate.errors import HashMismatchError
+from pygeoipupdate._file_lock import FileLock
+from pygeoipupdate._file_writer import ZERO_MD5, LocalFileWriter
+from pygeoipupdate.errors import HashMismatchError
 
 
 class TestFileLock:
@@ -190,9 +190,9 @@ class TestLocalFileWriter:
 
         with (
             patch(
-                "geoipupdate._file_writer.os.write", side_effect=OSError("disk full")
+                "pygeoipupdate._file_writer.os.write", side_effect=OSError("disk full")
             ),
-            patch("geoipupdate._file_writer.os.close") as mock_close,
+            patch("pygeoipupdate._file_writer.os.close") as mock_close,
         ):
             with pytest.raises(OSError, match="disk full"):
                 writer.write("GeoLite2-City", content, md5_hash)

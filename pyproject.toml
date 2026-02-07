@@ -1,5 +1,5 @@
 [project]
-name = "geoipupdate"
+name = "pygeoipupdate"
 version = "1.0.0"
 description = "MaxMind GeoIP database updater"
 authors = [
@@ -32,12 +32,12 @@ classifiers = [
 ]
 
 [project.scripts]
-geoipupdate = "geoipupdate.cli:main"
+pygeoipupdate = "pygeoipupdate.cli:main"
 
 [project.urls]
 Homepage = "https://www.maxmind.com/"
-"Source Code" = "https://github.com/maxmind/geoipupdate-python"
-"Issue Tracker" = "https://github.com/maxmind/geoipupdate-python/issues"
+"Source Code" = "https://github.com/maxmind/pygeoipupdate"
+"Issue Tracker" = "https://github.com/maxmind/pygeoipupdate/issues"
 
 [dependency-groups]
 dev = [
@@ -95,11 +95,11 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN201", "D", "S101", "S105", "S324", "E501", "PLC0415", "RUF043", "F841", "SLF001"]
-"src/geoipupdate/_file_writer.py" = ["S324"]
-"src/geoipupdate/_file_lock.py" = ["E501"]
+"src/pygeoipupdate/_file_writer.py" = ["S324"]
+"src/pygeoipupdate/_file_lock.py" = ["E501"]
 # config.py has necessary complexity from porting Go config parsing
-"src/geoipupdate/config.py" = ["C901", "PLR0912", "PLR0915", "PLW2901", "E501"]
-"src/geoipupdate/client.py" = ["SIM117"]
+"src/pygeoipupdate/config.py" = ["C901", "PLR0912", "PLR0915", "PLW2901", "E501"]
+"src/pygeoipupdate/client.py" = ["SIM117"]
 
 [tool.tox]
 env_list = [

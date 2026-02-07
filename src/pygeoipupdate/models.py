@@ -1,4 +1,4 @@
-"""Data models for geoipupdate."""
+"""Data models for pygeoipupdate."""
 
 from __future__ import annotations
 

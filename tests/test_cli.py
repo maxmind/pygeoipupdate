@@ -11,7 +11,7 @@ from pathlib import Path
 from click.testing import CliRunner
 from pytest_httpserver import HTTPServer
 
-from geoipupdate.cli import main
+from pygeoipupdate.cli import main
 
 
 def create_test_tar_gz(mmdb_content: bytes = b"test mmdb content") -> bytes:
@@ -39,7 +39,7 @@ class TestCLI:
         result = runner.invoke(main, ["--version"])
 
         assert result.exit_code == 0
-        assert "geoipupdate" in result.output
+        assert "pygeoipupdate" in result.output
         assert "1.0.0" in result.output
 
     def test_version_short_flag(self) -> None:
@@ -47,7 +47,7 @@ class TestCLI:
         result = runner.invoke(main, ["-V"])
 
         assert result.exit_code == 0
-        assert "geoipupdate" in result.output
+        assert "pygeoipupdate" in result.output
         assert "1.0.0" in result.output
 
     def test_help(self) -> None:

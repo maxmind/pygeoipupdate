@@ -1,4 +1,4 @@
-"""Command-line interface for geoipupdate."""
+"""Command-line interface for pygeoipupdate."""
 
 from __future__ import annotations
 
@@ -9,16 +9,16 @@ from pathlib import Path
 
 import click
 
-from geoipupdate import __version__
-from geoipupdate.config import Config
-from geoipupdate.errors import (
+from pygeoipupdate import __version__
+from pygeoipupdate.config import Config
+from pygeoipupdate.errors import (
     AuthenticationError,
     ConfigError,
     DownloadError,
     GeoIPUpdateError,
     LockError,
 )
-from geoipupdate.updater import Updater
+from pygeoipupdate.updater import Updater
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
@@ -55,7 +55,7 @@ from geoipupdate.updater import Updater
     default=0,
     help="Set the number of parallel database downloads.",
 )
-@click.version_option(__version__, "-V", "--version", prog_name="geoipupdate")
+@click.version_option(__version__, "-V", "--version", prog_name="pygeoipupdate")
 def main(
     config_file: Path | None,
     database_directory: Path | None,
@@ -72,16 +72,16 @@ def main(
     Example usage:
 
         # Using a configuration file
-        geoipupdate -f /etc/GeoIP.conf
+        pygeoipupdate -f /etc/GeoIP.conf
 
         # Using environment variables
         export GEOIPUPDATE_ACCOUNT_ID=12345
         export GEOIPUPDATE_LICENSE_KEY=your_key
         export GEOIPUPDATE_EDITION_IDS="GeoLite2-City GeoLite2-Country"
-        geoipupdate
+        pygeoipupdate
 
         # Verbose output with JSON results
-        geoipupdate -v -o
+        pygeoipupdate -v -o
     """
     if parallelism < 0:
         raise click.UsageError("Parallelism must be a positive number.")

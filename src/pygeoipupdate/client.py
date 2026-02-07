@@ -20,9 +20,9 @@ from tenacity import (
     wait_exponential,
 )
 
-from geoipupdate import __version__
-from geoipupdate.errors import AuthenticationError, DownloadError, HTTPError
-from geoipupdate.models import Metadata
+from pygeoipupdate import __version__
+from pygeoipupdate.errors import AuthenticationError, DownloadError, HTTPError
+from pygeoipupdate.models import Metadata
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -121,7 +121,7 @@ class Client:
     async def __aenter__(self) -> Self:
         """Enter async context manager."""
         self._auth = aiohttp.BasicAuth(str(self._account_id), self._license_key)
-        headers = {"User-Agent": f"geoipupdate-python/{__version__}"}
+        headers = {"User-Agent": f"pygeoipupdate/{__version__}"}
         self._session = aiohttp.ClientSession(headers=headers)
         return self
 
@@ -220,7 +220,8 @@ class Client:
 
         Args:
             edition_id: The database edition ID (e.g., "GeoLite2-City").
-            current_md5: MD5 hash of the current local database, or "" if none.
+            current_md5: MD5 hash of the current local database. Any value
+                that does not match the server's hash triggers a download.
 
         Returns:
             Download response with the database data.
