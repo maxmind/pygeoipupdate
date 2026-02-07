@@ -36,6 +36,7 @@ class FileLock:
         """
         self._path = path
         self._verbose = verbose
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
         self._lock = BaseFileLock(str(path))
 
     def acquire(self, timeout: float = 0) -> None:

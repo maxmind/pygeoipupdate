@@ -44,8 +44,8 @@ class LocalFileWriter:
         self._preserve_file_times = preserve_file_times
         self._verbose = verbose
 
-        # Ensure database directory exists
-        self._dir.mkdir(parents=True, exist_ok=True)
+        # Ensure database directory exists with 0o750 permissions (matching Go)
+        self._dir.mkdir(parents=True, exist_ok=True, mode=0o750)
 
     def get_hash(self, edition_id: str) -> str:
         """Get the MD5 hash of an existing database file.
