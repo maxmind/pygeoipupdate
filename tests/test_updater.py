@@ -270,6 +270,86 @@ class TestUpdater:
             assert (tmp_path / f"{edition}.mmdb").exists()
 
     @pytest.mark.asyncio
+    async def test_parallel_error_cancels_siblings(
+        self, httpserver: HTTPServer, tmp_path: Path
+    ) -> None:
+        """When one parallel download fails, sibling tasks should be cancelled."""
+        # Edition1 succeeds
+        e1_content = b"edition1 data"
+        e1_hash = hashlib.md5(e1_content).hexdigest()
+        e1_tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=e1_tar_buffer, mode="w") as tar:
+            info = tarfile.TarInfo(name="Edition1/Edition1.mmdb")
+            info.size = len(e1_content)
+            tar.addfile(info, io.BytesIO(e1_content))
+        e1_gz = io.BytesIO()
+        with gzip.GzipFile(fileobj=e1_gz, mode="wb") as gz:
+            gz.write(e1_tar_buffer.getvalue())
+
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+            query_string="edition_id=Edition1",
+        ).respond_with_json(
+            {
+                "databases": [
+                    {"edition_id": "Edition1", "date": "2024-01-15", "md5": e1_hash}
+                ]
+            }
+        )
+        httpserver.expect_request(
+            "/geoip/databases/Edition1/download",
+        ).respond_with_data(e1_gz.getvalue(), content_type="application/gzip")
+
+        # Edition2 returns 401 (non-retryable, should cause immediate failure)
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+            query_string="edition_id=Edition2",
+        ).respond_with_json({"error": "Invalid license key"}, status=401)
+
+        # Edition3 succeeds
+        e3_content = b"edition3 data"
+        e3_hash = hashlib.md5(e3_content).hexdigest()
+        e3_tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=e3_tar_buffer, mode="w") as tar:
+            info = tarfile.TarInfo(name="Edition3/Edition3.mmdb")
+            info.size = len(e3_content)
+            tar.addfile(info, io.BytesIO(e3_content))
+        e3_gz = io.BytesIO()
+        with gzip.GzipFile(fileobj=e3_gz, mode="wb") as gz:
+            gz.write(e3_tar_buffer.getvalue())
+
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+            query_string="edition_id=Edition3",
+        ).respond_with_json(
+            {
+                "databases": [
+                    {"edition_id": "Edition3", "date": "2024-01-15", "md5": e3_hash}
+                ]
+            }
+        )
+        httpserver.expect_request(
+            "/geoip/databases/Edition3/download",
+        ).respond_with_data(e3_gz.getvalue(), content_type="application/gzip")
+
+        config = Config(
+            account_id=12345,
+            license_key="test_key",
+            edition_ids=["Edition1", "Edition2", "Edition3"],
+            database_directory=tmp_path,
+            host=httpserver.url_for("/"),
+            parallelism=3,
+        )
+
+        with pytest.raises(ExceptionGroup) as exc_info:
+            async with Updater(config) as updater:
+                await updater.run()
+
+        # The ExceptionGroup should contain the AuthenticationError
+        auth_errors = exc_info.group_contains(AuthenticationError)
+        assert auth_errors
+
+    @pytest.mark.asyncio
     async def test_requires_context_manager(self, tmp_path: Path) -> None:
         config = Config(
             account_id=12345,

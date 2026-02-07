@@ -192,17 +192,22 @@ class Updater:
                 results.append(result)
             return results
 
-        # Parallel execution with limited concurrency
+        # Parallel execution with limited concurrency.
+        # TaskGroup cancels all remaining tasks if any one raises,
+        # matching Go's errgroup cancel-on-first-error semantics.
         semaphore = asyncio.Semaphore(parallelism)
 
         async def download_with_semaphore(edition_id: str) -> UpdateResult:
             async with semaphore:
                 return await self._download_edition(edition_id)
 
-        tasks = [download_with_semaphore(eid) for eid in edition_ids]
-        results = await asyncio.gather(*tasks)
+        task_handles: list[asyncio.Task[UpdateResult]] = []
+        async with asyncio.TaskGroup() as tg:
+            task_handles.extend(
+                tg.create_task(download_with_semaphore(eid)) for eid in edition_ids
+            )
 
-        return list(results)
+        return [t.result() for t in task_handles]
 
     async def _download_edition(self, edition_id: str) -> UpdateResult:
         """Download a single database edition with retry.
