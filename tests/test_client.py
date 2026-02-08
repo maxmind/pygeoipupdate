@@ -260,6 +260,40 @@ class TestClient:
             assert result.last_modified is None
 
     @pytest.mark.asyncio
+    async def test_get_metadata_non_json_content_type(
+        self, httpserver: HTTPServer
+    ) -> None:
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+        ).respond_with_data(
+            "<html>Bad Gateway</html>",
+            status=200,
+            content_type="text/html",
+        )
+
+        async with Client(
+            account_id=12345,
+            license_key="test_key",
+            host=httpserver.url_for("/"),
+        ) as client:
+            with pytest.raises(DownloadError, match="parse metadata"):
+                await client.get_metadata("GeoLite2-City")
+
+    @pytest.mark.asyncio
+    async def test_get_metadata_malformed_json(self, httpserver: HTTPServer) -> None:
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+        ).respond_with_json({"databases": [{"edition_id": "Foo"}]})
+
+        async with Client(
+            account_id=12345,
+            license_key="test_key",
+            host=httpserver.url_for("/"),
+        ) as client:
+            with pytest.raises(DownloadError, match="Malformed metadata"):
+                await client.get_metadata("GeoLite2-City")
+
+    @pytest.mark.asyncio
     async def test_client_requires_context_manager(self) -> None:
         client = Client(account_id=12345, license_key="test_key")
 

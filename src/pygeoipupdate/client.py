@@ -131,13 +131,12 @@ class Client:
             async with self._session.get(
                 url, proxy=self._proxy, auth=self._auth
             ) as response:
-                body = await response.text()
-
                 if response.status == 401:
                     msg = "Invalid account ID or license key"
                     raise AuthenticationError(msg)
 
                 if response.status != 200:
+                    body = await response.text()
                     raise HTTPError(
                         f"Unexpected HTTP status code: {response.status}",
                         status_code=response.status,
@@ -160,6 +159,9 @@ class Client:
                 except (KeyError, IndexError) as e:
                     msg = f"Malformed metadata response: missing field {e}"
                     raise DownloadError(msg) from e
+        except aiohttp.ContentTypeError as e:
+            msg = f"Failed to parse metadata response as JSON: {e}"
+            raise DownloadError(msg) from e
         except aiohttp.ClientError as e:
             msg = f"Failed to fetch metadata: {e}"
             raise DownloadError(msg) from e
