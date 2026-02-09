@@ -181,6 +181,9 @@ class TestParseDuration:
     def test_zero_seconds(self) -> None:
         assert _parse_duration("0s") == timedelta(0)
 
+    def test_bare_zero(self) -> None:
+        assert _parse_duration("0") == timedelta(0)
+
     def test_combined_minutes_seconds(self) -> None:
         assert _parse_duration("1m30s") == timedelta(minutes=1, seconds=30)
 

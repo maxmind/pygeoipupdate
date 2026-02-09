@@ -60,3 +60,23 @@ class TestUpdateResultToDict:
         assert result["edition_id"] == "GeoLite2-City"
         assert result["old_hash"] == "aaa"
         assert result["new_hash"] == "bbb"
+
+
+class TestWasUpdated:
+    """Tests for UpdateResult.was_updated property."""
+
+    def test_was_updated_true(self) -> None:
+        result = UpdateResult(
+            edition_id="GeoLite2-City",
+            old_hash="aaa",
+            new_hash="bbb",
+        )
+        assert result.was_updated is True
+
+    def test_was_updated_false(self) -> None:
+        result = UpdateResult(
+            edition_id="GeoLite2-City",
+            old_hash="aaa",
+            new_hash="aaa",
+        )
+        assert result.was_updated is False

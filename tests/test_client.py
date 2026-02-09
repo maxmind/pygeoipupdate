@@ -273,6 +273,42 @@ class TestClient:
                 await client.get_metadata("GeoLite2-City")
 
     @pytest.mark.asyncio
+    async def test_download_http_500_on_fetch(
+        self, httpserver: HTTPServer, tmp_path: Path
+    ) -> None:
+        """Metadata returns 200, but the download endpoint returns 500."""
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": "new_hash",
+                    }
+                ]
+            }
+        )
+
+        httpserver.expect_request(
+            "/geoip/databases/GeoLite2-City/download",
+        ).respond_with_json(
+            {"error": "Internal Server Error"},
+            status=500,
+        )
+
+        async with Client(
+            account_id=12345,
+            license_key="test_key",
+            host=httpserver.url_for("/"),
+        ) as client:
+            with pytest.raises(HTTPError) as exc_info:
+                await client.download("GeoLite2-City", "old_hash", tmp_path)
+
+            assert exc_info.value.status_code == 500
+
+    @pytest.mark.asyncio
     async def test_client_requires_context_manager(self) -> None:
         client = Client(account_id=12345, license_key="test_key")
 
