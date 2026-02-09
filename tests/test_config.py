@@ -225,6 +225,20 @@ class TestParseDuration:
         with pytest.raises(ConfigError, match="not a valid duration"):
             _parse_duration("-5m")
 
+    def test_leading_dot_fractional(self) -> None:
+        assert _parse_duration(".5s") == timedelta(milliseconds=500)
+
+    def test_trailing_dot_fractional(self) -> None:
+        assert _parse_duration("5.s") == timedelta(seconds=5)
+
+    def test_bare_unit_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="not a valid duration"):
+            _parse_duration("s")
+
+    def test_whitespace_zero_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="not a valid duration"):
+            _parse_duration(" 0 ")
+
 
 class TestParseEnvironment:
     """Tests for _parse_environment."""

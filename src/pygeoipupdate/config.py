@@ -352,15 +352,15 @@ def _parse_duration(value: str) -> timedelta:
         msg = f"'{value}' is not a valid duration"
         raise ConfigError(msg)
 
-    if value.strip() == "0":
+    if value == "0":
         return timedelta()
 
     # Match Go's time.ParseDuration format (without sign):
-    # one or more (number, unit) pairs.
-    pattern = re.compile(r"^(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)")
+    # one or more (number, unit) pairs.  The numeric part allows
+    # leading-dot (.5s), trailing-dot (5.s), and normal (5.0s) forms.
+    pattern = re.compile(r"^(\d*\.?\d*)(ns|us|µs|ms|s|m|h)")
     remaining = value
     total_us = 0.0
-    found = False
 
     # Unit values in microseconds
     unit_us = {
@@ -375,18 +375,13 @@ def _parse_duration(value: str) -> timedelta:
 
     while remaining:
         match = pattern.match(remaining)
-        if not match:
+        if not match or not match.group(1):
             msg = f"'{value}' is not a valid duration"
             raise ConfigError(msg)
-        found = True
         amount = float(match.group(1))
         unit = match.group(2)
         total_us += amount * unit_us[unit]
         remaining = remaining[match.end() :]
-
-    if not found:
-        msg = f"'{value}' is not a valid duration"
-        raise ConfigError(msg)
 
     return timedelta(microseconds=total_us)
 
