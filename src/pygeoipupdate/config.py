@@ -355,7 +355,7 @@ def _parse_duration(value: str) -> timedelta:
     # Match Go's time.ParseDuration format (without sign):
     # one or more (number, unit) pairs.  The numeric part allows
     # leading-dot (.5s), trailing-dot (5.s), and normal (5.0s) forms.
-    pattern = re.compile(r"^(\d*\.?\d*)(ns|us|µs|ms|s|m|h)")
+    pattern = re.compile(r"^(\d+\.?\d*|\d*\.?\d+)(ns|us|µs|ms|s|m|h)")
     remaining = value
     total_us = 0.0
 

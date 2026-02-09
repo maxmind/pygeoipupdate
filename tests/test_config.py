@@ -236,6 +236,10 @@ class TestParseDuration:
         with pytest.raises(ConfigError, match="not a valid duration"):
             _parse_duration("s")
 
+    def test_bare_decimal_point_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="not a valid duration"):
+            _parse_duration(".s")
+
     def test_whitespace_zero_rejected(self) -> None:
         with pytest.raises(ConfigError, match="not a valid duration"):
             _parse_duration(" 0 ")
