@@ -4,7 +4,51 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+
 from pygeoipupdate.models import UpdateResult
+
+
+class TestUpdateResultValidation:
+    """Tests for UpdateResult __post_init__ validation."""
+
+    def test_naive_modified_at_rejected(self) -> None:
+        with pytest.raises(ValueError, match="modified_at must be timezone-aware"):
+            UpdateResult(
+                edition_id="GeoLite2-City",
+                old_hash="aaa",
+                new_hash="bbb",
+                modified_at=datetime(2024, 1, 15, 12, 0, 0),  # noqa: DTZ001
+            )
+
+    def test_naive_checked_at_rejected(self) -> None:
+        with pytest.raises(ValueError, match="checked_at must be timezone-aware"):
+            UpdateResult(
+                edition_id="GeoLite2-City",
+                old_hash="aaa",
+                new_hash="bbb",
+                checked_at=datetime(2024, 1, 15, 12, 0, 0),  # noqa: DTZ001
+            )
+
+    def test_aware_datetimes_accepted(self) -> None:
+        result = UpdateResult(
+            edition_id="GeoLite2-City",
+            old_hash="aaa",
+            new_hash="bbb",
+            modified_at=datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC),
+            checked_at=datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC),
+        )
+        assert result.modified_at is not None
+        assert result.checked_at is not None
+
+    def test_none_datetimes_accepted(self) -> None:
+        result = UpdateResult(
+            edition_id="GeoLite2-City",
+            old_hash="aaa",
+            new_hash="bbb",
+        )
+        assert result.modified_at is None
+        assert result.checked_at is None
 
 
 class TestUpdateResultToDict:

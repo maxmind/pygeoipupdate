@@ -42,6 +42,14 @@ class UpdateResult:
     modified_at: datetime | None = None
     checked_at: datetime | None = None
 
+    def __post_init__(self) -> None:
+        """Validate that datetime fields are timezone-aware."""
+        for field_name in ("modified_at", "checked_at"):
+            value = getattr(self, field_name)
+            if value is not None and value.tzinfo is None:
+                msg = f"{field_name} must be timezone-aware"
+                raise ValueError(msg)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization.
 
