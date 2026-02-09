@@ -54,20 +54,28 @@ class LocalFileWriter:
             edition_id: The database edition ID.
 
         Returns:
-            The MD5 hash as a hex string, or ZERO_MD5 if the file doesn't exist.
+            The MD5 hash as a hex string, or ZERO_MD5 if the file
+            doesn't exist or cannot be read.
 
         """
         file_path = self._get_file_path(edition_id)
 
-        if not file_path.exists():
+        try:
+            md5_hash = hashlib.md5()
+            with file_path.open("rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    md5_hash.update(chunk)
+        except FileNotFoundError:
             if self._verbose:
                 logger.info("Database does not exist, returning zeroed hash")
             return ZERO_MD5
-
-        md5_hash = hashlib.md5()
-        with file_path.open("rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                md5_hash.update(chunk)
+        except OSError:
+            logger.warning(
+                "Failed to read database %s, returning zeroed hash",
+                file_path,
+                exc_info=True,
+            )
+            return ZERO_MD5
 
         result = md5_hash.hexdigest()
         if self._verbose:

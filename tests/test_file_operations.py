@@ -73,6 +73,26 @@ class TestLocalFileWriter:
 
         assert result == ZERO_MD5
 
+    def test_get_hash_permission_error(self, tmp_path: Path) -> None:
+        writer = LocalFileWriter(tmp_path)
+        file_path = tmp_path / "GeoLite2-City.mmdb"
+        file_path.write_bytes(b"test content")
+        file_path.chmod(0o000)
+
+        try:
+            result = writer.get_hash("GeoLite2-City")
+            assert result == ZERO_MD5
+        finally:
+            file_path.chmod(0o644)
+
+    def test_get_hash_file_deleted_during_read(self, tmp_path: Path) -> None:
+        writer = LocalFileWriter(tmp_path)
+
+        with patch.object(Path, "open", side_effect=FileNotFoundError("deleted")):
+            result = writer.get_hash("GeoLite2-City")
+
+        assert result == ZERO_MD5
+
     def test_get_hash_existing_file(self, tmp_path: Path) -> None:
         writer = LocalFileWriter(tmp_path)
         content = b"test mmdb content"
