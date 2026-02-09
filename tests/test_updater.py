@@ -24,23 +24,7 @@ from pygeoipupdate.errors import (
     HTTPError,
 )
 from pygeoipupdate.updater import Updater, _is_retryable_error
-
-
-def create_test_tar_gz(mmdb_content: bytes = b"test mmdb content") -> bytes:
-    """Create a test tar.gz archive containing an mmdb file."""
-    tar_buffer = io.BytesIO()
-    with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
-        mmdb_info = tarfile.TarInfo(name="GeoLite2-City_20240101/GeoLite2-City.mmdb")
-        mmdb_info.size = len(mmdb_content)
-        tar.addfile(mmdb_info, io.BytesIO(mmdb_content))
-
-    tar_data = tar_buffer.getvalue()
-
-    gz_buffer = io.BytesIO()
-    with gzip.GzipFile(fileobj=gz_buffer, mode="wb") as gz:
-        gz.write(tar_data)
-
-    return gz_buffer.getvalue()
+from tests.conftest import create_test_tar_gz
 
 
 class TestUpdater:
