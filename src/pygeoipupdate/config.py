@@ -314,17 +314,20 @@ def _parse_host(value: str) -> str:
         Full URL with scheme.
 
     Raises:
-        ConfigError: If the URL cannot be parsed.
+        ConfigError: If the URL is invalid, has a non-http(s) scheme,
+            or lacks a hostname.
 
     """
-    try:
-        parsed = urlparse(value)
-        if not parsed.scheme:
-            parsed = urlparse(f"https://{value}")
-        return urlunparse(parsed)
-    except (ValueError, TypeError) as e:
-        msg = f"failed to parse Host: {e}"
-        raise ConfigError(msg) from e
+    parsed = urlparse(value)
+    if not parsed.scheme:
+        parsed = urlparse(f"https://{value}")
+    if parsed.scheme not in ("http", "https"):
+        msg = f"Host scheme must be http or https, got '{parsed.scheme}'"
+        raise ConfigError(msg)
+    if not parsed.hostname:
+        msg = "Host must include a hostname"
+        raise ConfigError(msg)
+    return urlunparse(parsed)
 
 
 def _parse_duration(value: str) -> timedelta:

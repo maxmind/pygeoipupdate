@@ -13,6 +13,7 @@ from pygeoipupdate.config import (
     _parse_config_file,
     _parse_duration,
     _parse_environment,
+    _parse_host,
 )
 from pygeoipupdate.errors import ConfigError
 
@@ -469,3 +470,19 @@ EditionIDs GeoLite2-City
                 edition_ids=["GeoLite2-City"],
                 retry_for=timedelta(days=-1),
             )
+
+
+class TestParseHost:
+    """Tests for _parse_host."""
+
+    def test_parse_host_empty_string(self) -> None:
+        with pytest.raises(ConfigError, match="hostname"):
+            _parse_host("")
+
+    def test_parse_host_garbage(self) -> None:
+        with pytest.raises(ConfigError):
+            _parse_host("::::")
+
+    def test_parse_host_ftp_scheme(self) -> None:
+        with pytest.raises(ConfigError, match="http or https"):
+            _parse_host("ftp://example.com")
