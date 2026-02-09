@@ -7,7 +7,7 @@ import hashlib
 import io
 import stat
 import tarfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -176,7 +176,7 @@ class TestLocalFileWriter:
         writer = LocalFileWriter(tmp_path, preserve_file_times=True)
         content = b"test mmdb content"
         md5_hash = hashlib.md5(content).hexdigest()
-        last_modified = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        last_modified = datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)
 
         writer.write(
             "GeoLite2-City",
@@ -186,7 +186,7 @@ class TestLocalFileWriter:
         )
 
         file_path = tmp_path / "GeoLite2-City.mmdb"
-        mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+        mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
 
         # Compare timestamps (allowing small difference for filesystem precision)
         assert abs((mtime - last_modified).total_seconds()) < 2

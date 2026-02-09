@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
     help="Set the number of parallel database downloads.",
 )
 @click.version_option(__version__, "-V", "--version", prog_name="pygeoipupdate")
-def main(
+def main(  # noqa: C901, PLR0912
     config_file: Path | None,
     database_directory: Path | None,
     verbose: bool,
@@ -84,38 +84,7 @@ def main(
         # Verbose output with JSON results
         pygeoipupdate -v -o
     """
-    if parallelism < 0:
-        raise click.UsageError("Parallelism must be a positive number.")
-
-    # Set up logging
-    if verbose:
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(message)s",
-        )
-    else:
-        logging.basicConfig(
-            level=logging.WARNING,
-            format="%(message)s",
-        )
-
-    try:
-        config = Config.from_file(
-            config_file=config_file,
-            database_directory=database_directory,
-            parallelism=parallelism if parallelism > 0 else None,
-            verbose=verbose,
-            output=output,
-        )
-    except ConfigError as e:
-        click.echo(f"Configuration error: {e}", err=True)
-        sys.exit(1)
-
-    if verbose:
-        logger.info("pygeoipupdate version %s", __version__)
-        if config_file:
-            logger.info("Using config file %s", config_file)
-        logger.info("Using database directory %s", config.database_directory)
+    config = _setup(config_file, database_directory, verbose, output, parallelism)
 
     # except* handles both bare exceptions and ExceptionGroup-wrapped
     # exceptions from asyncio.TaskGroup (parallel downloads). We cannot
@@ -155,6 +124,43 @@ def main(
         exit_code = 1
     if exit_code:
         sys.exit(exit_code)
+
+
+def _setup(
+    config_file: Path | None,
+    database_directory: Path | None,
+    verbose: bool,
+    output: bool,
+    parallelism: int,
+) -> Config:
+    """Validate CLI args, configure logging, and load configuration."""
+    if parallelism < 0:
+        raise click.UsageError("Parallelism must be a positive number.")
+
+    logging.basicConfig(
+        level=logging.INFO if verbose else logging.WARNING,
+        format="%(message)s",
+    )
+
+    try:
+        config = Config.from_file(
+            config_file=config_file,
+            database_directory=database_directory,
+            parallelism=parallelism if parallelism > 0 else None,
+            verbose=verbose,
+            output=output,
+        )
+    except ConfigError as e:
+        click.echo(f"Configuration error: {e}", err=True)
+        sys.exit(1)
+
+    if verbose:
+        logger.info("pygeoipupdate version %s", __version__)
+        if config_file:
+            logger.info("Using config file %s", config_file)
+        logger.info("Using database directory %s", config.database_directory)
+
+    return config
 
 
 async def _run(config: Config) -> None:

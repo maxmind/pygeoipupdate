@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self
 
 import aiohttp
@@ -165,8 +165,7 @@ class Updater:
         self._lock.acquire()
 
         try:
-            results = await self._run_updates()
-            return results
+            return await self._run_updates()
         finally:
             if self._lock:
                 self._lock.release()
@@ -263,7 +262,7 @@ class Updater:
             edition_id, old_hash, self._config.database_directory
         )
 
-        checked_at = datetime.now(timezone.utc)
+        checked_at = datetime.now(UTC)
 
         if isinstance(response, NoUpdateAvailable):
             if self._config.verbose:
