@@ -219,7 +219,7 @@ class TestLocalFileWriter:
     def test_path_traversal_rejected(self, tmp_path: Path, edition_id: str) -> None:
         writer = LocalFileWriter(tmp_path)
 
-        with pytest.raises(ValueError, match="Invalid edition_id"):
+        with pytest.raises(DownloadError, match="Invalid edition_id"):
             writer._get_file_path(edition_id)
 
     def test_verbose_logging(

@@ -219,12 +219,12 @@ class LocalFileWriter:
             Path to the database file.
 
         Raises:
-            ValueError: If edition_id contains path traversal characters.
+            DownloadError: If edition_id contains path traversal characters.
 
         """
         if "/" in edition_id or "\\" in edition_id or ".." in edition_id:
             msg = f"Invalid edition_id: {edition_id}"
-            raise ValueError(msg)
+            raise DownloadError(msg)
         return self._dir / f"{edition_id}.mmdb"
 
     @staticmethod
