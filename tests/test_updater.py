@@ -64,7 +64,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=tmp_path,
             host=httpserver.url_for("/"),
         )
@@ -113,7 +113,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=tmp_path,
             host=httpserver.url_for("/"),
         )
@@ -189,7 +189,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["GeoLite2-City", "GeoLite2-Country"],
+            edition_ids=("GeoLite2-City", "GeoLite2-Country"),
             database_directory=tmp_path,
             host=httpserver.url_for("/"),
         )
@@ -207,7 +207,7 @@ class TestUpdater:
     async def test_parallel_downloads(
         self, httpserver: HTTPServer, tmp_path: Path
     ) -> None:
-        editions = ["Edition1", "Edition2", "Edition3"]
+        editions = ("Edition1", "Edition2", "Edition3")
 
         for edition in editions:
             content = f"{edition} data".encode()
@@ -319,7 +319,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["Edition1", "Edition2", "Edition3"],
+            edition_ids=("Edition1", "Edition2", "Edition3"),
             database_directory=tmp_path,
             host=httpserver.url_for("/"),
             parallelism=3,
@@ -341,7 +341,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=tmp_path,
         )
 
@@ -378,7 +378,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=tmp_path,
             lock_file=lock_file,
             host=httpserver.url_for("/"),
@@ -396,7 +396,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=tmp_path,
         )
 
@@ -447,7 +447,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=tmp_path,
             host=httpserver.url_for("/"),
             retry_for=timedelta(0),
@@ -506,7 +506,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="test_key",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=tmp_path,
             host=httpserver.url_for("/"),
             retry_for=timedelta(seconds=30),
@@ -542,7 +542,7 @@ class TestUpdater:
         config = Config(
             account_id=12345,
             license_key="bad_key",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=tmp_path,
             host=httpserver.url_for("/"),
             retry_for=timedelta(seconds=30),

@@ -91,7 +91,12 @@ def main(  # noqa: C901, PLR0912
     # call sys.exit() inside except* handlers because SystemExit would be
     # wrapped in another ExceptionGroup, so we record the exit code and
     # exit after the try block.
-    exit_code = 0
+    #
+    # The type: ignore[assignment] comments work around a mypy bug where
+    # reusing the `eg` variable across except* clauses is flagged as an
+    # incompatible assignment (same class of bug as mypy#1045, but for
+    # except* instead of except).
+    exit_code: int = 0
     try:
         asyncio.run(_run(config))
     except* AuthenticationError as eg:
@@ -99,30 +104,30 @@ def main(  # noqa: C901, PLR0912
             click.echo(f"Authentication error: {exc}", err=True)
         exit_code = 1
     except* LockError as eg:
-        for exc in eg.exceptions:
+        for exc in eg.exceptions:  # type: ignore[assignment]
             click.echo(f"Lock error: {exc}", err=True)
         exit_code = 1
     except* DownloadError as eg:
-        for exc in eg.exceptions:
+        for exc in eg.exceptions:  # type: ignore[assignment]
             click.echo(f"Download error: {exc}", err=True)
         exit_code = 1
     except* GeoIPUpdateError as eg:
-        for exc in eg.exceptions:
+        for exc in eg.exceptions:  # type: ignore[assignment]
             click.echo(f"Error: {exc}", err=True)
         exit_code = 1
     except* ConnectionError as eg:
-        for exc in eg.exceptions:
+        for exc in eg.exceptions:  # type: ignore[assignment]
             click.echo(f"Connection error: {exc}", err=True)
         exit_code = 1
     except* OSError as eg:
-        for exc in eg.exceptions:
+        for exc in eg.exceptions:  # type: ignore[assignment]
             click.echo(f"File operation error: {exc}", err=True)
         exit_code = 1
     except* KeyboardInterrupt:
         click.echo("\nInterrupted.", err=True)
         exit_code = 130
     except* Exception as eg:  # noqa: BLE001
-        for exc in eg.exceptions:
+        for exc in eg.exceptions:  # type: ignore[assignment]
             logger.error("Unexpected error", exc_info=exc)  # noqa: TRY400
             click.echo(f"Unexpected error ({type(exc).__name__}): {exc}", err=True)
         exit_code = 1

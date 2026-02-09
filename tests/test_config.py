@@ -421,7 +421,7 @@ EditionIDs GeoLite2-City
         config = Config(
             account_id=12345,
             license_key="abc123",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=Path("/var/lib/GeoIP"),
         )
 
@@ -434,7 +434,7 @@ EditionIDs GeoLite2-City
         config = Config(
             account_id=12345,
             license_key="abc123",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=Path("/var/lib/GeoIP"),
         )
 
@@ -446,7 +446,7 @@ EditionIDs GeoLite2-City
             Config(
                 account_id=1,
                 license_key="",
-                edition_ids=["GeoLite2-City"],
+                edition_ids=("GeoLite2-City",),
             )
 
     def test_empty_edition_ids_raises(self) -> None:
@@ -454,7 +454,7 @@ EditionIDs GeoLite2-City
             Config(
                 account_id=1,
                 license_key="abc123",
-                edition_ids=[],
+                edition_ids=(),
             )
 
     def test_invalid_parallelism_raises(self) -> None:
@@ -462,7 +462,7 @@ EditionIDs GeoLite2-City
             Config(
                 account_id=1,
                 license_key="abc123",
-                edition_ids=["GeoLite2-City"],
+                edition_ids=("GeoLite2-City",),
                 parallelism=0,
             )
 
@@ -471,7 +471,7 @@ EditionIDs GeoLite2-City
             Config(
                 account_id=999999,
                 license_key="000000000000",
-                edition_ids=["GeoLite2-City"],
+                edition_ids=("GeoLite2-City",),
                 database_directory=Path("/var/lib/GeoIP"),
             )
 
@@ -480,7 +480,7 @@ EditionIDs GeoLite2-City
             Config(
                 account_id=1,
                 license_key="abc123",
-                edition_ids=["GeoLite2-City"],
+                edition_ids=("GeoLite2-City",),
                 host="not-a-url",
             )
 
@@ -489,7 +489,7 @@ EditionIDs GeoLite2-City
             Config(
                 account_id=1,
                 license_key="abc123",
-                edition_ids=["GeoLite2-City"],
+                edition_ids=("GeoLite2-City",),
                 retry_for=timedelta(days=-1),
             )
 

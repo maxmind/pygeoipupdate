@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
-from typing import Self
+from typing import Self, cast
 from urllib.parse import urlparse, urlunparse
 
 from pygeoipupdate._defaults import (
@@ -152,8 +152,8 @@ class Config:
 
         # Build proxy URL if needed
         proxy = _build_proxy_url(
-            config_data.get("_proxy_url"),
-            config_data.get("_proxy_user_password"),
+            cast("str | None", config_data.get("_proxy_url")),
+            cast("str | None", config_data.get("_proxy_user_password")),
         )
         if proxy:
             config_data["proxy"] = proxy
@@ -163,7 +163,7 @@ class Config:
         config_data.pop("_proxy_user_password", None)
 
         kwargs: dict[str, object] = {
-            "account_id": int(config_data["account_id"]),  # type: ignore[arg-type]
+            "account_id": int(cast("str | int", config_data["account_id"])),
             "license_key": str(config_data["license_key"]),
             "edition_ids": tuple(config_data["edition_ids"]),  # type: ignore[arg-type]
             "database_directory": Path(config_data["database_directory"]),  # type: ignore[arg-type]
@@ -171,7 +171,7 @@ class Config:
             "proxy": config_data.get("proxy"),
             "preserve_file_times": bool(config_data.get("preserve_file_times", False)),
             "retry_for": config_data["retry_for"],
-            "parallelism": int(config_data["parallelism"]),  # type: ignore[arg-type]
+            "parallelism": int(cast("str | int", config_data["parallelism"])),
             "verbose": bool(config_data.get("verbose", False)),
             "output": bool(config_data.get("output", False)),
         }
