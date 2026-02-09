@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -282,3 +283,25 @@ Parallelism 2
 
         assert result.exit_code == 0
         assert (tmp_path / "GeoLite2-City.mmdb").exists()
+
+    def test_connection_error_not_labeled_file_operation(
+        self, httpserver: HTTPServer, tmp_path: Path
+    ) -> None:
+        """ConnectionError should say 'Connection error', not 'File operation error'."""
+        config_file = tmp_path / "GeoIP.conf"
+        config_file.write_text(f"""AccountID 12345
+LicenseKey test_key
+EditionIDs GeoLite2-City
+Host {httpserver.url_for("/")}
+DatabaseDirectory {tmp_path}
+""")
+
+        mock_run = AsyncMock(side_effect=ConnectionError("Connection refused"))
+
+        runner = CliRunner()
+        with patch("pygeoipupdate.cli._run", mock_run):
+            result = runner.invoke(main, ["-f", str(config_file)])
+
+        assert result.exit_code == 1
+        assert "Connection error" in result.output
+        assert "File operation error" not in result.output

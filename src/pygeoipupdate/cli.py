@@ -110,6 +110,10 @@ def main(  # noqa: C901, PLR0912
         for exc in eg.exceptions:
             click.echo(f"Error: {exc}", err=True)
         exit_code = 1
+    except* ConnectionError as eg:
+        for exc in eg.exceptions:
+            click.echo(f"Connection error: {exc}", err=True)
+        exit_code = 1
     except* OSError as eg:
         for exc in eg.exceptions:
             click.echo(f"File operation error: {exc}", err=True)
