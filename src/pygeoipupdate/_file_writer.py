@@ -1,0 +1,252 @@
+"""File writer for pygeoipupdate databases."""
+
+from __future__ import annotations
+
+import gzip
+import hashlib
+import io
+import logging
+import os
+import re
+import tarfile
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+from pygeoipupdate._utils import cleanup_temp_file
+from pygeoipupdate.errors import DownloadError, HashMismatchError
+
+logger = logging.getLogger(__name__)
+
+ZERO_MD5 = "00000000000000000000000000000000"
+
+_VALID_EDITION_ID = re.compile(r"^[A-Za-z0-9-]+$")
+
+
+class LocalFileWriter:
+    """Writes database files atomically with MD5 verification.
+
+    Databases are written to a temporary file first, then atomically
+    renamed to their final location after hash verification.
+    """
+
+    def __init__(
+        self,
+        database_dir: Path,
+        *,
+        preserve_file_times: bool = False,
+        verbose: bool = False,
+    ) -> None:
+        """Initialize the file writer.
+
+        Args:
+            database_dir: Directory to store database files.
+            preserve_file_times: Whether to preserve file modification times.
+            verbose: Enable verbose logging.
+
+        """
+        self._dir = database_dir
+        self._preserve_file_times = preserve_file_times
+        self._verbose = verbose
+
+        # Ensure database directory exists with 0o750 permissions (matching Go)
+        self._dir.mkdir(parents=True, exist_ok=True, mode=0o750)
+
+    def get_hash(self, edition_id: str) -> str:
+        """Get the MD5 hash of an existing database file.
+
+        Args:
+            edition_id: The database edition ID.
+
+        Returns:
+            The MD5 hash as a hex string, or ZERO_MD5 if the file
+            doesn't exist or cannot be read.
+
+        """
+        file_path = self._get_file_path(edition_id)
+
+        try:
+            md5_hash = hashlib.md5()
+            with file_path.open("rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    md5_hash.update(chunk)
+        except FileNotFoundError:
+            if self._verbose:
+                logger.info("Database does not exist, returning zeroed hash")
+            return ZERO_MD5
+        except OSError:
+            logger.warning(
+                "Failed to read database %s, returning zeroed hash",
+                file_path,
+                exc_info=True,
+            )
+            return ZERO_MD5
+
+        result = md5_hash.hexdigest()
+        if self._verbose:
+            logger.info("Calculated MD5 sum for %s: %s", file_path, result)
+
+        return result
+
+    def write(
+        self,
+        edition_id: str,
+        compressed_path: Path,
+        expected_md5: str,
+        last_modified: datetime | None = None,
+    ) -> None:
+        """Write the database file atomically from a tar.gz archive.
+
+        Extracts the .mmdb entry from the archive file to a temporary
+        file while computing the MD5 hash, then validates and atomically
+        renames.
+
+        Args:
+            edition_id: The database edition ID.
+            compressed_path: Path to the tar.gz archive file.
+            expected_md5: Expected MD5 hash of the extracted MMDB data.
+            last_modified: Optional timestamp to set as the file's mtime.
+
+        Raises:
+            HashMismatchError: If the data hash doesn't match expected_md5.
+            DownloadError: If the archive doesn't contain an MMDB file.
+            OSError: If file operations fail.
+
+        """
+        final_path = self._get_file_path(edition_id)
+
+        # Write to temporary file in the same directory for atomic rename
+        fd, temp_path = tempfile.mkstemp(
+            suffix=".temporary",
+            prefix=f"{edition_id}_",
+            dir=self._dir,
+        )
+
+        try:
+            with os.fdopen(fd, "wb") as f:
+                if hasattr(os, "fchmod"):
+                    os.fchmod(f.fileno(), 0o644)
+                actual_md5 = self._extract_and_write(f, compressed_path)
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception:
+            cleanup_temp_file(temp_path)
+            raise
+
+        # Validate hash after writing
+        if actual_md5.lower() != expected_md5.lower():
+            cleanup_temp_file(temp_path)
+            msg = (
+                f"MD5 of new database ({actual_md5}) "
+                f"does not match expected MD5 ({expected_md5})"
+            )
+            raise HashMismatchError(msg, expected=expected_md5, actual=actual_md5)
+
+        try:
+            os.replace(temp_path, final_path)
+        except Exception:
+            cleanup_temp_file(temp_path)
+            raise
+
+        # After the atomic rename, the database is correctly placed.
+        # Failures in sync/utime are non-fatal.
+        self._sync_dir(self._dir)
+
+        if self._preserve_file_times and last_modified:
+            try:
+                timestamp = last_modified.timestamp()
+                os.utime(final_path, (timestamp, timestamp))
+            except OSError:
+                logger.warning(
+                    "Failed to set modification time for %s",
+                    final_path,
+                    exc_info=True,
+                )
+
+        if self._verbose:
+            logger.info(
+                "Database %s successfully updated: %s", edition_id, expected_md5
+            )
+
+    @staticmethod
+    def _extract_and_write(f: io.BufferedWriter, compressed_path: Path) -> str:
+        """Extract the .mmdb from a tar.gz and write it to a file, returning MD5.
+
+        Args:
+            f: File object to write to.
+            compressed_path: Path to the tar.gz archive file.
+
+        Returns:
+            The MD5 hex digest of the written data.
+
+        Raises:
+            DownloadError: If the archive is corrupt, does not contain an .mmdb
+                file, or the .mmdb entry cannot be extracted.
+
+        """
+        md5_hash = hashlib.md5()
+        try:
+            with (
+                gzip.open(compressed_path, "rb") as gz,
+                tarfile.open(fileobj=gz, mode="r|") as tar,
+            ):
+                for member in tar:
+                    if member.name.endswith(".mmdb"):
+                        try:
+                            extracted = tar.extractfile(member)
+                        except tarfile.StreamError as e:
+                            msg = f"Failed to extract {member.name}: {e}"
+                            raise DownloadError(msg) from e
+                        if not extracted:
+                            msg = (
+                                f"Archive member {member.name} is not a"
+                                " regular file (may be a symlink or"
+                                " directory)"
+                            )
+                            raise DownloadError(msg)
+                        while chunk := extracted.read(8192):
+                            f.write(chunk)
+                            md5_hash.update(chunk)
+                        return md5_hash.hexdigest()
+        except (gzip.BadGzipFile, tarfile.TarError) as e:
+            msg = f"Failed to extract database from archive: {e}"
+            raise DownloadError(msg) from e
+
+        raise DownloadError("tar archive does not contain an mmdb file")
+
+    def _get_file_path(self, edition_id: str) -> Path:
+        """Get the file path for a database edition.
+
+        Args:
+            edition_id: The database edition ID.
+
+        Returns:
+            Path to the database file.
+
+        Raises:
+            DownloadError: If edition_id is not a valid database name.
+
+        """
+        if not _VALID_EDITION_ID.match(edition_id):
+            msg = f"Invalid edition_id: {edition_id}"
+            raise DownloadError(msg)
+        return self._dir / f"{edition_id}.mmdb"
+
+    def _sync_dir(self, path: Path) -> None:
+        """Sync directory to ensure rename is persisted.
+
+        Args:
+            path: Directory path to sync.
+
+        """
+        if not hasattr(os, "O_DIRECTORY"):
+            return
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        except OSError:
+            # Some filesystems don't support directory fsync
+            logger.warning("Failed to sync directory %s", path, exc_info=True)

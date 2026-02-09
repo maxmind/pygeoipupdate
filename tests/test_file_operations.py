@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import gzip
 import hashlib
-from datetime import datetime, timezone
+import io
+import os
+import stat
+import tarfile
+from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from geoipupdate._file_lock import FileLock
-from geoipupdate._file_writer import ZERO_MD5, LocalFileWriter
-from geoipupdate.errors import HashMismatchError
+from pygeoipupdate._file_lock import FileLock
+from pygeoipupdate._file_writer import ZERO_MD5, LocalFileWriter
+from pygeoipupdate.errors import DownloadError, HashMismatchError
+from tests.conftest import create_test_tar_gz_file
 
 
 class TestFileLock:
@@ -67,6 +74,27 @@ class TestLocalFileWriter:
 
         assert result == ZERO_MD5
 
+    @pytest.mark.skipif(os.getuid() == 0, reason="root ignores file permissions")
+    def test_get_hash_permission_error(self, tmp_path: Path) -> None:
+        writer = LocalFileWriter(tmp_path)
+        file_path = tmp_path / "GeoLite2-City.mmdb"
+        file_path.write_bytes(b"test content")
+        file_path.chmod(0o000)
+
+        try:
+            result = writer.get_hash("GeoLite2-City")
+            assert result == ZERO_MD5
+        finally:
+            file_path.chmod(0o644)
+
+    def test_get_hash_file_deleted_during_read(self, tmp_path: Path) -> None:
+        writer = LocalFileWriter(tmp_path)
+
+        with patch.object(Path, "open", side_effect=FileNotFoundError("deleted")):
+            result = writer.get_hash("GeoLite2-City")
+
+        assert result == ZERO_MD5
+
     def test_get_hash_existing_file(self, tmp_path: Path) -> None:
         writer = LocalFileWriter(tmp_path)
         content = b"test mmdb content"
@@ -83,19 +111,33 @@ class TestLocalFileWriter:
         writer = LocalFileWriter(tmp_path)
         content = b"test mmdb content"
         md5_hash = hashlib.md5(content).hexdigest()
+        compressed_path = create_test_tar_gz_file(tmp_path, content)
 
-        writer.write("GeoLite2-City", content, md5_hash)
+        writer.write("GeoLite2-City", compressed_path, md5_hash)
 
         file_path = tmp_path / "GeoLite2-City.mmdb"
         assert file_path.exists()
         assert file_path.read_bytes() == content
 
+    def test_write_sets_644_permissions(self, tmp_path: Path) -> None:
+        writer = LocalFileWriter(tmp_path)
+        content = b"test mmdb content"
+        md5_hash = hashlib.md5(content).hexdigest()
+        compressed_path = create_test_tar_gz_file(tmp_path, content)
+
+        writer.write("GeoLite2-City", compressed_path, md5_hash)
+
+        file_path = tmp_path / "GeoLite2-City.mmdb"
+        mode = stat.S_IMODE(file_path.stat().st_mode)
+        assert mode == 0o644
+
     def test_write_hash_mismatch(self, tmp_path: Path) -> None:
         writer = LocalFileWriter(tmp_path)
         content = b"test mmdb content"
+        compressed_path = create_test_tar_gz_file(tmp_path, content)
 
         with pytest.raises(HashMismatchError) as exc_info:
-            writer.write("GeoLite2-City", content, "wronghash")
+            writer.write("GeoLite2-City", compressed_path, "wronghash")
 
         assert exc_info.value.expected == "wronghash"
         assert exc_info.value.actual == hashlib.md5(content).hexdigest()
@@ -109,12 +151,16 @@ class TestLocalFileWriter:
         # Write initial content
         old_content = b"old content"
         old_hash = hashlib.md5(old_content).hexdigest()
-        writer.write("GeoLite2-City", old_content, old_hash)
+        writer.write(
+            "GeoLite2-City", create_test_tar_gz_file(tmp_path, old_content), old_hash
+        )
 
         # Overwrite with new content
         new_content = b"new content"
         new_hash = hashlib.md5(new_content).hexdigest()
-        writer.write("GeoLite2-City", new_content, new_hash)
+        writer.write(
+            "GeoLite2-City", create_test_tar_gz_file(tmp_path, new_content), new_hash
+        )
 
         file_path = tmp_path / "GeoLite2-City.mmdb"
         assert file_path.read_bytes() == new_content
@@ -123,12 +169,17 @@ class TestLocalFileWriter:
         writer = LocalFileWriter(tmp_path, preserve_file_times=True)
         content = b"test mmdb content"
         md5_hash = hashlib.md5(content).hexdigest()
-        last_modified = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        last_modified = datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)
 
-        writer.write("GeoLite2-City", content, md5_hash, last_modified)
+        writer.write(
+            "GeoLite2-City",
+            create_test_tar_gz_file(tmp_path, content),
+            md5_hash,
+            last_modified,
+        )
 
         file_path = tmp_path / "GeoLite2-City.mmdb"
-        mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+        mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
 
         # Compare timestamps (allowing small difference for filesystem precision)
         assert abs((mtime - last_modified).total_seconds()) < 2
@@ -139,12 +190,18 @@ class TestLocalFileWriter:
         # Write initial content
         old_content = b"old content"
         old_hash = hashlib.md5(old_content).hexdigest()
-        writer.write("GeoLite2-City", old_content, old_hash)
+        writer.write(
+            "GeoLite2-City", create_test_tar_gz_file(tmp_path, old_content), old_hash
+        )
 
         # Try to write with wrong hash - should fail atomically
         new_content = b"new content"
         with pytest.raises(HashMismatchError):
-            writer.write("GeoLite2-City", new_content, "wronghash")
+            writer.write(
+                "GeoLite2-City",
+                create_test_tar_gz_file(tmp_path, new_content),
+                "wronghash",
+            )
 
         # Original file should still have old content
         file_path = tmp_path / "GeoLite2-City.mmdb"
@@ -157,13 +214,130 @@ class TestLocalFileWriter:
 
         assert path == tmp_path / "GeoLite2-City.mmdb"
 
-    def test_verbose_logging(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    @pytest.mark.parametrize(
+        "edition_id",
+        ["../etc/passwd", "foo/bar", "foo\\bar", "..", "has space", "has.dot", ""],
+    )
+    def test_invalid_edition_id_rejected(self, tmp_path: Path, edition_id: str) -> None:
+        writer = LocalFileWriter(tmp_path)
+
+        with pytest.raises(DownloadError, match="Invalid edition_id"):
+            writer._get_file_path(edition_id)
+
+    def test_verbose_logging(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         writer = LocalFileWriter(tmp_path, verbose=True)
         content = b"test content"
         md5_hash = hashlib.md5(content).hexdigest()
 
         import logging
+
         with caplog.at_level(logging.INFO):
-            writer.write("GeoLite2-City", content, md5_hash)
+            writer.write(
+                "GeoLite2-City", create_test_tar_gz_file(tmp_path, content), md5_hash
+            )
 
         assert "successfully updated" in caplog.text
+
+    def test_write_failure_cleans_up(self, tmp_path: Path) -> None:
+        """Verify temp file is cleaned up when writing raises."""
+        writer = LocalFileWriter(tmp_path)
+        content = b"test content"
+        md5_hash = hashlib.md5(content).hexdigest()
+
+        original_fdopen = os.fdopen
+
+        def failing_fdopen(fd: int, mode: str) -> io.BufferedWriter:
+            f = original_fdopen(fd, mode)
+            original_write = f.write
+
+            def write_that_fails(_data: bytes) -> int:
+                f.write = original_write  # type: ignore[method-assign]
+                msg = "disk full"
+                raise OSError(msg)
+
+            f.write = write_that_fails  # type: ignore[assignment,method-assign]
+            return f  # type: ignore[return-value]
+
+        with (
+            patch("pygeoipupdate._file_writer.os.fdopen", side_effect=failing_fdopen),
+            pytest.raises(OSError, match="disk full"),
+        ):
+            writer.write(
+                "GeoLite2-City",
+                create_test_tar_gz_file(tmp_path, content),
+                md5_hash,
+            )
+
+        # Verify no temp files remain
+        temp_files = list(tmp_path.glob("*.temporary"))
+        assert temp_files == []
+
+    def test_hash_mismatch_no_temp_files(self, tmp_path: Path) -> None:
+        """Verify no orphaned .temporary files remain after a HashMismatchError."""
+        writer = LocalFileWriter(tmp_path)
+        content = b"test mmdb content"
+
+        with pytest.raises(HashMismatchError):
+            writer.write(
+                "GeoLite2-City",
+                create_test_tar_gz_file(tmp_path, content),
+                "wrong_hash",
+            )
+
+        temp_files = list(tmp_path.glob("*.temporary"))
+        assert temp_files == []
+
+
+class TestExtractAndWrite:
+    """Tests for tar.gz extraction in LocalFileWriter."""
+
+    def test_no_mmdb_file(self, tmp_path: Path) -> None:
+        """Archive without .mmdb should raise DownloadError."""
+        writer = LocalFileWriter(tmp_path)
+
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+            info = tarfile.TarInfo(name="README.txt")
+            info.size = 4
+            tar.addfile(info, io.BytesIO(b"test"))
+
+        gz_buffer = io.BytesIO()
+        with gzip.GzipFile(fileobj=gz_buffer, mode="wb") as gz:
+            gz.write(tar_buffer.getvalue())
+
+        gz_path = tmp_path / "no_mmdb.tar.gz"
+        gz_path.write_bytes(gz_buffer.getvalue())
+
+        with pytest.raises(DownloadError, match="does not contain an mmdb file"):
+            writer.write("GeoLite2-City", gz_path, "somehash")
+
+    def test_mmdb_symlink_not_extractable(self, tmp_path: Path) -> None:
+        """A symlink .mmdb entry should give a specific error."""
+        writer = LocalFileWriter(tmp_path)
+
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+            info = tarfile.TarInfo(name="GeoLite2-City/GeoLite2-City.mmdb")
+            info.type = tarfile.SYMTYPE
+            info.linkname = "nonexistent"
+            tar.addfile(info)
+
+        gz_buffer = io.BytesIO()
+        with gzip.GzipFile(fileobj=gz_buffer, mode="wb") as gz:
+            gz.write(tar_buffer.getvalue())
+
+        gz_path = tmp_path / "symlink.tar.gz"
+        gz_path.write_bytes(gz_buffer.getvalue())
+
+        with pytest.raises(DownloadError, match="Failed to extract"):
+            writer.write("GeoLite2-City", gz_path, "somehash")
+
+    def test_invalid_gzip(self, tmp_path: Path) -> None:
+        writer = LocalFileWriter(tmp_path)
+        bad_gz_path = tmp_path / "bad.tar.gz"
+        bad_gz_path.write_bytes(b"not valid gzip data")
+
+        with pytest.raises(DownloadError, match="Failed to extract"):
+            writer.write("GeoLite2-City", bad_gz_path, "somehash")

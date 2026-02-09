@@ -1,5 +1,5 @@
 [project]
-name = "geoipupdate"
+name = "pygeoipupdate"
 version = "1.0.0"
 description = "MaxMind GeoIP database updater"
 authors = [
@@ -11,7 +11,7 @@ dependencies = [
     "filelock>=3.12.0,<4.0.0",
     "tenacity>=8.2.0,<10.0.0",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -22,7 +22,6 @@ classifiers = [
     "Intended Audience :: System Administrators",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -32,12 +31,12 @@ classifiers = [
 ]
 
 [project.scripts]
-geoipupdate = "geoipupdate.cli:main"
+pygeoipupdate = "pygeoipupdate.cli:main"
 
 [project.urls]
 Homepage = "https://www.maxmind.com/"
-"Source Code" = "https://github.com/maxmind/geoipupdate-python"
-"Issue Tracker" = "https://github.com/maxmind/geoipupdate-python/issues"
+"Source Code" = "https://github.com/maxmind/pygeoipupdate"
+"Issue Tracker" = "https://github.com/maxmind/pygeoipupdate/issues"
 
 [dependency-groups]
 dev = [
@@ -95,15 +94,14 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN201", "D", "S101", "S105", "S324", "E501", "PLC0415", "RUF043", "F841", "SLF001"]
-"src/geoipupdate/_file_writer.py" = ["S324"]
-"src/geoipupdate/_file_lock.py" = ["E501"]
+"src/pygeoipupdate/_file_writer.py" = ["S324"]
+"src/pygeoipupdate/_file_lock.py" = ["E501"]
 # config.py has necessary complexity from porting Go config parsing
-"src/geoipupdate/config.py" = ["C901", "PLR0912", "PLR0915", "PLW2901", "E501"]
-"src/geoipupdate/client.py" = ["SIM117"]
+"src/pygeoipupdate/config.py" = ["C901", "PLR0912", "PLR0915", "PLW2901", "E501"]
+"src/pygeoipupdate/client.py" = ["SIM117"]
 
 [tool.tox]
 env_list = [
-    "3.10",
     "3.11",
     "3.12",
     "3.13",
@@ -138,4 +136,3 @@ commands = [
 "3.13" = ["3.13"]
 "3.12" = ["3.12"]
 "3.11" = ["3.11"]
-"3.10" = ["3.10"]

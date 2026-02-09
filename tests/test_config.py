@@ -1,4 +1,4 @@
-"""Tests for geoipupdate configuration."""
+"""Tests for pygeoipupdate configuration."""
 
 from __future__ import annotations
 
@@ -7,14 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from geoipupdate.config import (
+from pygeoipupdate.config import (
     Config,
     _build_proxy_url,
     _parse_config_file,
     _parse_duration,
     _parse_environment,
+    _parse_host,
 )
-from geoipupdate.errors import ConfigError
+from pygeoipupdate.errors import ConfigError
 
 
 class TestParseConfigFile:
@@ -138,19 +139,20 @@ Parallelism -1
         with pytest.raises(ConfigError, match="parallelism should be greater than 0"):
             _parse_config_file(config_file)
 
-    def test_deprecated_options_ignored(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "option",
+        ["Protocol https", "SkipHostnameVerification 1", "SkipPeerVerification 1"],
+    )
+    def test_deprecated_options_rejected(self, tmp_path: Path, option: str) -> None:
         config_file = tmp_path / "GeoIP.conf"
-        config_file.write_text("""AccountID 12345
+        config_file.write_text(f"""AccountID 12345
 LicenseKey abc
 EditionIDs Test
-Protocol https
-SkipHostnameVerification 1
-SkipPeerVerification 1
+{option}
 """)
 
-        # Should not raise
-        config = _parse_config_file(config_file)
-        assert config["account_id"] == 12345
+        with pytest.raises(ConfigError, match="unknown option"):
+            _parse_config_file(config_file)
 
 
 class TestParseDuration:
@@ -176,6 +178,71 @@ class TestParseDuration:
     def test_empty(self) -> None:
         with pytest.raises(ConfigError, match="is not a valid duration"):
             _parse_duration("")
+
+    def test_zero_seconds(self) -> None:
+        assert _parse_duration("0s") == timedelta(0)
+
+    def test_bare_zero(self) -> None:
+        assert _parse_duration("0") == timedelta(0)
+
+    def test_combined_minutes_seconds(self) -> None:
+        assert _parse_duration("1m30s") == timedelta(minutes=1, seconds=30)
+
+    def test_large_values(self) -> None:
+        assert _parse_duration("99h99m99s") == timedelta(
+            hours=99, minutes=99, seconds=99
+        )
+
+    def test_space_invalid(self) -> None:
+        with pytest.raises(ConfigError, match="is not a valid duration"):
+            _parse_duration("1h 30m")
+
+    def test_wrong_order_accepted(self) -> None:
+        # Go's time.ParseDuration accepts any order
+        assert _parse_duration("30m5h") == timedelta(hours=5, minutes=30)
+
+    def test_milliseconds(self) -> None:
+        assert _parse_duration("300ms") == timedelta(milliseconds=300)
+
+    def test_microseconds(self) -> None:
+        assert _parse_duration("100us") == timedelta(microseconds=100)
+
+    def test_microseconds_unicode(self) -> None:
+        assert _parse_duration("100µs") == timedelta(microseconds=100)
+
+    def test_nanoseconds(self) -> None:
+        assert _parse_duration("1000ns") == timedelta(microseconds=1)
+
+    def test_fractional_seconds(self) -> None:
+        assert _parse_duration("1.5s") == timedelta(seconds=1, milliseconds=500)
+
+    def test_fractional_minutes(self) -> None:
+        assert _parse_duration("1.5m") == timedelta(seconds=90)
+
+    def test_mixed_subsecond(self) -> None:
+        assert _parse_duration("1s500ms") == timedelta(seconds=1, milliseconds=500)
+
+    def test_negative_duration_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="not a valid duration"):
+            _parse_duration("-5m")
+
+    def test_leading_dot_fractional(self) -> None:
+        assert _parse_duration(".5s") == timedelta(milliseconds=500)
+
+    def test_trailing_dot_fractional(self) -> None:
+        assert _parse_duration("5.s") == timedelta(seconds=5)
+
+    def test_bare_unit_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="not a valid duration"):
+            _parse_duration("s")
+
+    def test_bare_decimal_point_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="not a valid duration"):
+            _parse_duration(".s")
+
+    def test_whitespace_zero_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="not a valid duration"):
+            _parse_duration(" 0 ")
 
 
 class TestParseEnvironment:
@@ -278,7 +345,7 @@ DatabaseDirectory /var/lib/GeoIP
 
         assert config.account_id == 12345
         assert config.license_key == "abc123"
-        assert config.edition_ids == ["GeoLite2-City", "GeoLite2-Country"]
+        assert config.edition_ids == ("GeoLite2-City", "GeoLite2-Country")
         assert config.database_directory == Path("/var/lib/GeoIP")
         assert config.host == "https://updates.maxmind.com"
         assert config.parallelism == 1
@@ -354,11 +421,99 @@ EditionIDs GeoLite2-City
         config = Config(
             account_id=12345,
             license_key="abc123",
-            edition_ids=["GeoLite2-City"],
+            edition_ids=("GeoLite2-City",),
             database_directory=Path("/var/lib/GeoIP"),
         )
 
         assert config.account_id == 12345
         assert config.license_key == "abc123"
-        assert config.edition_ids == ["GeoLite2-City"]
+        assert config.edition_ids == ("GeoLite2-City",)
         assert config.lock_file == Path("/var/lib/GeoIP/.geoipupdate.lock")
+
+    def test_frozen(self) -> None:
+        config = Config(
+            account_id=12345,
+            license_key="abc123",
+            edition_ids=("GeoLite2-City",),
+            database_directory=Path("/var/lib/GeoIP"),
+        )
+
+        with pytest.raises(AttributeError):
+            config.account_id = 99999  # type: ignore[misc]
+
+    def test_empty_license_key_raises(self) -> None:
+        with pytest.raises(ConfigError, match="LicenseKey.*required"):
+            Config(
+                account_id=1,
+                license_key="",
+                edition_ids=("GeoLite2-City",),
+            )
+
+    def test_empty_edition_ids_raises(self) -> None:
+        with pytest.raises(ConfigError, match="EditionIDs.*required"):
+            Config(
+                account_id=1,
+                license_key="abc123",
+                edition_ids=(),
+            )
+
+    def test_invalid_parallelism_raises(self) -> None:
+        with pytest.raises(ConfigError, match="parallelism should be greater than 0"):
+            Config(
+                account_id=1,
+                license_key="abc123",
+                edition_ids=("GeoLite2-City",),
+                parallelism=0,
+            )
+
+    def test_placeholder_credentials_rejected_direct_construction(self) -> None:
+        with pytest.raises(ConfigError, match="valid AccountID and LicenseKey"):
+            Config(
+                account_id=999999,
+                license_key="000000000000",
+                edition_ids=("GeoLite2-City",),
+                database_directory=Path("/var/lib/GeoIP"),
+            )
+
+    def test_invalid_host_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="host must be an http"):
+            Config(
+                account_id=1,
+                license_key="abc123",
+                edition_ids=("GeoLite2-City",),
+                host="not-a-url",
+            )
+
+    def test_negative_retry_for_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="retry_for must be non-negative"):
+            Config(
+                account_id=1,
+                license_key="abc123",
+                edition_ids=("GeoLite2-City",),
+                retry_for=timedelta(days=-1),
+            )
+
+
+class TestParseHost:
+    """Tests for _parse_host."""
+
+    def test_parse_host_empty_string(self) -> None:
+        with pytest.raises(ConfigError, match="hostname"):
+            _parse_host("")
+
+    def test_parse_host_garbage(self) -> None:
+        with pytest.raises(ConfigError):
+            _parse_host("::::")
+
+    def test_parse_host_bare_host_port(self) -> None:
+        assert (
+            _parse_host("updates.example.com:8080")
+            == "https://updates.example.com:8080"
+        )
+
+    def test_parse_host_bare_host(self) -> None:
+        assert _parse_host("updates.example.com") == "https://updates.example.com"
+
+    def test_parse_host_ftp_scheme(self) -> None:
+        with pytest.raises(ConfigError, match="http or https"):
+            _parse_host("ftp://example.com")

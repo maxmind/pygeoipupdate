@@ -1,4 +1,4 @@
-"""Data models for geoipupdate."""
+"""Data models for pygeoipupdate."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class Metadata:
     md5: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class UpdateResult:
     """Result of updating a single database edition.
 
@@ -42,11 +42,25 @@ class UpdateResult:
     modified_at: datetime | None = None
     checked_at: datetime | None = None
 
+    def __post_init__(self) -> None:
+        """Validate that datetime fields are timezone-aware."""
+        for field_name in ("modified_at", "checked_at"):
+            value = getattr(self, field_name)
+            if value is not None and value.tzinfo is None:
+                msg = f"{field_name} must be timezone-aware"
+                raise ValueError(msg)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization.
 
         Returns:
-            Dictionary representation suitable for JSON output.
+            Dictionary with the following keys:
+
+            - ``edition_id`` (str): Always present.
+            - ``old_hash`` (str): Always present.
+            - ``new_hash`` (str): Always present.
+            - ``modified_at`` (int): Unix epoch seconds. Omitted when None.
+            - ``checked_at`` (int): Unix epoch seconds. Omitted when None.
 
         """
         result: dict[str, Any] = {
@@ -54,10 +68,10 @@ class UpdateResult:
             "old_hash": self.old_hash,
             "new_hash": self.new_hash,
         }
-        if self.modified_at:
-            result["modified_at"] = self.modified_at.isoformat()
-        if self.checked_at:
-            result["checked_at"] = self.checked_at.isoformat()
+        if self.modified_at is not None:
+            result["modified_at"] = int(self.modified_at.timestamp())
+        if self.checked_at is not None:
+            result["checked_at"] = int(self.checked_at.timestamp())
         return result
 
     @property

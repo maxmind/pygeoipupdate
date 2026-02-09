@@ -1,10 +1,10 @@
-"""Exception classes for geoipupdate."""
+"""Exception classes for pygeoipupdate."""
 
 from __future__ import annotations
 
 
 class GeoIPUpdateError(Exception):
-    """Base exception for geoipupdate errors."""
+    """Base exception for pygeoipupdate errors."""
 
 
 class ConfigError(GeoIPUpdateError):

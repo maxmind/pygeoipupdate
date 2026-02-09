@@ -1,37 +1,45 @@
-"""Configuration management for geoipupdate."""
+"""Configuration management for pygeoipupdate."""
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
-from typing import Self
+from typing import Self, cast
 from urllib.parse import urlparse, urlunparse
 
-from geoipupdate._defaults import (
+from pygeoipupdate._defaults import (
     get_default_config_file,
     get_default_database_directory,
 )
-from geoipupdate.errors import ConfigError
+from pygeoipupdate.errors import ConfigError
+
+logger = logging.getLogger(__name__)
 
 _SCHEME_RE = re.compile(r"(?i)\A([a-z][a-z0-9+\-.]*)://")
 
+# Sentinel so __post_init__ can distinguish "caller didn't provide a
+# lock_file" from an explicit value.  Go always uses a lock file.
+_UNSET_LOCK_FILE = Path("\x00unset")
 
-@dataclass
+
+@dataclass(frozen=True)
 class Config:
-    """Configuration for geoipupdate.
+    """Configuration for pygeoipupdate.
 
     Attributes:
         account_id: MaxMind account ID.
         license_key: MaxMind license key.
-        edition_ids: List of database edition IDs to download.
+        edition_ids: Database edition IDs to download.
         database_directory: Directory to store database files.
         host: MaxMind update server URL.
         proxy: Proxy URL (http, https, or socks5).
         preserve_file_times: Whether to preserve file modification times.
         lock_file: Path to lock file for preventing concurrent runs.
+            Defaults to ``<database_directory>/.geoipupdate.lock``.
         retry_for: Duration to retry failed downloads.
         parallelism: Number of parallel downloads.
         verbose: Enable verbose output.
@@ -41,12 +49,12 @@ class Config:
 
     account_id: int
     license_key: str
-    edition_ids: list[str]
+    edition_ids: tuple[str, ...]
     database_directory: Path = field(default_factory=get_default_database_directory)
     host: str = "https://updates.maxmind.com"
     proxy: str | None = None
     preserve_file_times: bool = False
-    lock_file: Path | None = None
+    lock_file: Path = field(default_factory=lambda: _UNSET_LOCK_FILE)
     retry_for: timedelta = field(default_factory=lambda: timedelta(minutes=5))
     parallelism: int = 1
     verbose: bool = False
@@ -54,8 +62,29 @@ class Config:
 
     def __post_init__(self) -> None:
         """Validate and set derived values after initialization."""
-        if self.lock_file is None:
-            self.lock_file = self.database_directory / ".geoipupdate.lock"
+        if self.lock_file is _UNSET_LOCK_FILE:
+            object.__setattr__(
+                self, "lock_file", self.database_directory / ".geoipupdate.lock"
+            )
+        if not isinstance(self.edition_ids, tuple):
+            object.__setattr__(self, "edition_ids", tuple(self.edition_ids))
+        if self.account_id < 1:
+            raise ConfigError("account_id must be a positive integer")
+        if not self.edition_ids:
+            raise ConfigError("the `EditionIDs` option is required")
+        if not self.license_key:
+            raise ConfigError("the `LicenseKey` option is required")
+        if self.parallelism < 1:
+            msg = f"parallelism should be greater than 0, got '{self.parallelism}'"
+            raise ConfigError(msg)
+        if self.account_id == 999999 and self.license_key == "000000000000":
+            msg = "pygeoipupdate requires a valid AccountID and LicenseKey combination"
+            raise ConfigError(msg)
+        if not self.host or not self.host.startswith(("http://", "https://")):
+            msg = "host must be an http:// or https:// URL"
+            raise ConfigError(msg)
+        if self.retry_for < timedelta(0):
+            raise ConfigError("retry_for must be non-negative")
 
     @classmethod
     def from_file(
@@ -123,8 +152,8 @@ class Config:
 
         # Build proxy URL if needed
         proxy = _build_proxy_url(
-            config_data.get("_proxy_url"),
-            config_data.get("_proxy_user_password"),
+            cast("str | None", config_data.get("_proxy_url")),
+            cast("str | None", config_data.get("_proxy_user_password")),
         )
         if proxy:
             config_data["proxy"] = proxy
@@ -133,20 +162,23 @@ class Config:
         config_data.pop("_proxy_url", None)
         config_data.pop("_proxy_user_password", None)
 
-        return cls(
-            account_id=int(config_data["account_id"]),  # type: ignore[arg-type]
-            license_key=str(config_data["license_key"]),
-            edition_ids=list(config_data["edition_ids"]),  # type: ignore[arg-type]
-            database_directory=Path(config_data["database_directory"]),  # type: ignore[arg-type]
-            host=str(config_data["host"]),
-            proxy=config_data.get("proxy"),  # type: ignore[arg-type]
-            preserve_file_times=bool(config_data.get("preserve_file_times", False)),
-            lock_file=Path(config_data["lock_file"]) if config_data.get("lock_file") else None,  # type: ignore[arg-type]
-            retry_for=config_data["retry_for"],  # type: ignore[arg-type]
-            parallelism=int(config_data["parallelism"]),  # type: ignore[arg-type]
-            verbose=bool(config_data.get("verbose", False)),
-            output=bool(config_data.get("output", False)),
-        )
+        kwargs: dict[str, object] = {
+            "account_id": int(cast("str | int", config_data["account_id"])),
+            "license_key": str(config_data["license_key"]),
+            "edition_ids": tuple(config_data["edition_ids"]),  # type: ignore[arg-type]
+            "database_directory": Path(config_data["database_directory"]),  # type: ignore[arg-type]
+            "host": str(config_data["host"]),
+            "proxy": config_data.get("proxy"),
+            "preserve_file_times": bool(config_data.get("preserve_file_times", False)),
+            "retry_for": config_data["retry_for"],
+            "parallelism": int(cast("str | int", config_data["parallelism"])),
+            "verbose": bool(config_data.get("verbose", False)),
+            "output": bool(config_data.get("output", False)),
+        }
+        if config_data.get("lock_file"):
+            kwargs["lock_file"] = Path(config_data["lock_file"])  # type: ignore[arg-type]
+
+        return cls(**kwargs)  # type: ignore[arg-type]
 
 
 def _parse_config_file(path: Path) -> dict[str, object]:
@@ -250,10 +282,6 @@ def _set_config_value(
     elif key == "ProxyUserPassword":
         config["_proxy_user_password"] = value
 
-    elif key in ("Protocol", "SkipHostnameVerification", "SkipPeerVerification"):
-        # Deprecated options, ignore
-        pass
-
     elif key == "RetryFor":
         config["retry_for"] = _parse_duration(value)
 
@@ -283,26 +311,32 @@ def _parse_host(value: str) -> str:
         Full URL with scheme.
 
     Raises:
-        ConfigError: If the URL cannot be parsed.
+        ConfigError: If the URL is invalid, has a non-http(s) scheme,
+            or lacks a hostname.
 
     """
-    try:
+    if not _SCHEME_RE.match(value):
+        parsed = urlparse(f"https://{value}")
+    else:
         parsed = urlparse(value)
-        if not parsed.scheme:
-            parsed = urlparse(f"https://{value}")
-        return urlunparse(parsed)
-    except Exception as e:
-        msg = f"failed to parse Host: {e}"
-        raise ConfigError(msg) from e
+    if parsed.scheme not in ("http", "https"):
+        msg = f"Host scheme must be http or https, got '{parsed.scheme}'"
+        raise ConfigError(msg)
+    if not parsed.hostname:
+        msg = "Host must include a hostname"
+        raise ConfigError(msg)
+    return urlunparse(parsed)
 
 
 def _parse_duration(value: str) -> timedelta:
-    """Parse a Go-style duration string.
+    """Parse a duration string using Go's time.ParseDuration format.
 
-    Supports formats like "5m", "1h30m", "2h", "300s".
+    Supports units: h, m, s, ms, us/µs, ns. Components can appear in
+    any order. Fractional values like "1.5m" are accepted. Sign prefixes
+    are not supported (only non-negative durations are valid).
 
     Args:
-        value: Duration string.
+        value: Duration string (e.g. "5m", "1h30m", "300ms", "1.5s").
 
     Returns:
         Parsed timedelta.
@@ -311,23 +345,42 @@ def _parse_duration(value: str) -> timedelta:
         ConfigError: If the duration cannot be parsed.
 
     """
-    pattern = re.compile(r"^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
-    match = pattern.match(value)
-
-    if not match or not any(match.groups()):
+    if not value:
         msg = f"'{value}' is not a valid duration"
         raise ConfigError(msg)
 
-    hours = int(match.group(1) or 0)
-    minutes = int(match.group(2) or 0)
-    seconds = int(match.group(3) or 0)
+    if value == "0":
+        return timedelta()
 
-    duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
-    if duration < timedelta(0):
-        msg = f"'{value}' is not a valid duration"
-        raise ConfigError(msg)
+    # Match Go's time.ParseDuration format (without sign):
+    # one or more (number, unit) pairs.  The numeric part allows
+    # leading-dot (.5s), trailing-dot (5.s), and normal (5.0s) forms.
+    pattern = re.compile(r"^(\d+\.?\d*|\d*\.?\d+)(ns|us|µs|ms|s|m|h)")
+    remaining = value
+    total_us = 0.0
 
-    return duration
+    # Unit values in microseconds
+    unit_us = {
+        "ns": 0.001,
+        "us": 1.0,
+        "µs": 1.0,
+        "ms": 1_000.0,
+        "s": 1_000_000.0,
+        "m": 60_000_000.0,
+        "h": 3_600_000_000.0,
+    }
+
+    while remaining:
+        match = pattern.match(remaining)
+        if not match or not match.group(1):
+            msg = f"'{value}' is not a valid duration"
+            raise ConfigError(msg)
+        amount = float(match.group(1))
+        unit = match.group(2)
+        total_us += amount * unit_us[unit]
+        remaining = remaining[match.end() :]
+
+    return timedelta(microseconds=total_us)
 
 
 def _parse_environment() -> dict[str, object]:
@@ -431,6 +484,10 @@ def _parse_environment() -> dict[str, object]:
 def _validate_config(config: dict[str, object]) -> None:
     """Validate that required configuration values are present.
 
+    These checks apply to the dict-building phase before Config
+    construction.  Invariant checks that also apply to direct
+    construction live in Config.__post_init__.
+
     Args:
         config: Configuration dictionary.
 
@@ -438,23 +495,15 @@ def _validate_config(config: dict[str, object]) -> None:
         ConfigError: If required values are missing or invalid.
 
     """
-    # Check for invalid placeholder credentials
-    account_id = config.get("account_id", 0)
-    license_key = config.get("license_key", "")
-
-    if (account_id in (0, 999999)) and license_key == "000000000000":
-        msg = "geoipupdate requires a valid AccountID and LicenseKey combination"
-        raise ConfigError(msg)
-
     if not config.get("edition_ids"):
         msg = "the `EditionIDs` option is required"
         raise ConfigError(msg)
 
-    if not account_id:
+    if not config.get("account_id"):
         msg = "the `AccountID` option is required"
         raise ConfigError(msg)
 
-    if not license_key:
+    if not config.get("license_key"):
         msg = "the `LicenseKey` option is required"
         raise ConfigError(msg)
 
@@ -491,7 +540,7 @@ def _build_proxy_url(
 
     try:
         parsed = urlparse(proxy_url)
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         msg = f"parsing proxy URL: {e}"
         raise ConfigError(msg) from e
 
@@ -499,7 +548,7 @@ def _build_proxy_url(
     host = parsed.hostname or ""
     port = parsed.port
     if port is None:
-        port = 1080  # Default from cURL
+        port = 1080  # Default proxy port (matching Go implementation)
 
     netloc = f"{host}:{port}"
 
