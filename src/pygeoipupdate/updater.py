@@ -45,6 +45,8 @@ def _is_retryable_error(exception: BaseException) -> bool:
         True if the exception should trigger a retry.
 
     """
+    # Hash mismatches are retryable because they likely indicate transient
+    # corruption during transfer rather than a persistent server-side problem.
     if isinstance(exception, HashMismatchError):
         return True
     # HTTPError and AuthenticationError are DownloadError subclasses;
