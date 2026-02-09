@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import io
+import os
 import stat
 import tarfile
 from datetime import UTC, datetime
@@ -238,26 +239,35 @@ class TestLocalFileWriter:
 
         assert "successfully updated" in caplog.text
 
-    def test_write_failure_closes_fd(self, tmp_path: Path) -> None:
-        """Verify os.close is called when os.write raises."""
+    def test_write_failure_cleans_up(self, tmp_path: Path) -> None:
+        """Verify temp file is cleaned up when writing raises."""
         writer = LocalFileWriter(tmp_path)
         content = b"test content"
         md5_hash = hashlib.md5(content).hexdigest()
 
-        with (
-            patch(
-                "pygeoipupdate._file_writer.os.write", side_effect=OSError("disk full")
-            ),
-            patch("pygeoipupdate._file_writer.os.close") as mock_close,
-        ):
-            with pytest.raises(OSError, match="disk full"):
-                writer.write(
-                    "GeoLite2-City",
-                    create_test_tar_gz_file(tmp_path, content),
-                    md5_hash,
-                )
+        original_fdopen = os.fdopen
 
-            mock_close.assert_called_once()
+        def failing_fdopen(fd: int, mode: str) -> io.BufferedWriter:
+            f = original_fdopen(fd, mode)
+            original_write = f.write
+
+            def write_that_fails(_data: bytes) -> int:
+                f.write = original_write  # type: ignore[method-assign]
+                msg = "disk full"
+                raise OSError(msg)
+
+            f.write = write_that_fails  # type: ignore[assignment,method-assign]
+            return f  # type: ignore[return-value]
+
+        with (
+            patch("pygeoipupdate._file_writer.os.fdopen", side_effect=failing_fdopen),
+            pytest.raises(OSError, match="disk full"),
+        ):
+            writer.write(
+                "GeoLite2-City",
+                create_test_tar_gz_file(tmp_path, content),
+                md5_hash,
+            )
 
         # Verify no temp files remain
         temp_files = list(tmp_path.glob("*.temporary"))

@@ -275,16 +275,16 @@ class Client:
                     dir=temp_dir,
                 )
                 try:
-                    async for chunk in response.content.iter_chunked(
-                        64 * 1024,
-                    ):
-                        os.write(fd, chunk)
-                    os.fsync(fd)
+                    with os.fdopen(fd, "wb") as f:
+                        async for chunk in response.content.iter_chunked(
+                            64 * 1024,
+                        ):
+                            f.write(chunk)
+                        f.flush()
+                        os.fsync(f.fileno())
                 except BaseException:
-                    os.close(fd)
                     _cleanup_temp_file(temp_path)
                     raise
-                os.close(fd)
 
                 return Path(temp_path), last_modified
 

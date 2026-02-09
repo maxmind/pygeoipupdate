@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import io
 import logging
 import os
 import tarfile
@@ -120,13 +121,13 @@ class LocalFileWriter:
         try:
             if hasattr(os, "fchmod"):
                 os.fchmod(fd, 0o644)
-            actual_md5 = self._extract_and_write(fd, compressed_path)
-            os.fsync(fd)
+            with os.fdopen(fd, "wb") as f:
+                actual_md5 = self._extract_and_write(f, compressed_path)
+                f.flush()
+                os.fsync(f.fileno())
         except Exception:
-            os.close(fd)
             self._cleanup_temp_file(temp_path)
             raise
-        os.close(fd)
 
         # Validate hash after writing
         if actual_md5.lower() != expected_md5.lower():
@@ -164,11 +165,11 @@ class LocalFileWriter:
             )
 
     @staticmethod
-    def _extract_and_write(fd: int, compressed_path: Path) -> str:
-        """Extract the .mmdb from a tar.gz and write it to fd, returning MD5.
+    def _extract_and_write(f: io.BufferedWriter, compressed_path: Path) -> str:
+        """Extract the .mmdb from a tar.gz and write it to a file, returning MD5.
 
         Args:
-            fd: File descriptor to write to.
+            f: File object to write to.
             compressed_path: Path to the tar.gz archive file.
 
         Returns:
@@ -200,7 +201,7 @@ class LocalFileWriter:
                             )
                             raise DownloadError(msg)
                         while chunk := extracted.read(8192):
-                            os.write(fd, chunk)
+                            f.write(chunk)
                             md5_hash.update(chunk)
                         return md5_hash.hexdigest()
         except (gzip.BadGzipFile, tarfile.TarError) as e:
