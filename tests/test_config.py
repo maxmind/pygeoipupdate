@@ -486,6 +486,15 @@ class TestParseHost:
         with pytest.raises(ConfigError):
             _parse_host("::::")
 
+    def test_parse_host_bare_host_port(self) -> None:
+        assert (
+            _parse_host("updates.example.com:8080")
+            == "https://updates.example.com:8080"
+        )
+
+    def test_parse_host_bare_host(self) -> None:
+        assert _parse_host("updates.example.com") == "https://updates.example.com"
+
     def test_parse_host_ftp_scheme(self) -> None:
         with pytest.raises(ConfigError, match="http or https"):
             _parse_host("ftp://example.com")

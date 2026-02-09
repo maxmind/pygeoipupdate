@@ -318,9 +318,10 @@ def _parse_host(value: str) -> str:
             or lacks a hostname.
 
     """
-    parsed = urlparse(value)
-    if not parsed.scheme:
+    if not _SCHEME_RE.match(value):
         parsed = urlparse(f"https://{value}")
+    else:
+        parsed = urlparse(value)
     if parsed.scheme not in ("http", "https"):
         msg = f"Host scheme must be http or https, got '{parsed.scheme}'"
         raise ConfigError(msg)
