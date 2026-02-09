@@ -203,8 +203,8 @@ DatabaseDirectory {tmp_path}
         assert output[0]["new_hash"] == mmdb_hash
         # Timestamps must be Unix epoch integers, not ISO 8601 strings
         assert isinstance(output[0]["checked_at"], int)
-        if "modified_at" in output[0]:
-            assert isinstance(output[0]["modified_at"], int)
+        # No Last-Modified header in mock response, so modified_at should be absent
+        assert "modified_at" not in output[0]
 
     def test_auth_error(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         httpserver.expect_request(
