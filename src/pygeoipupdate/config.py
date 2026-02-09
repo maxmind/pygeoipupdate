@@ -77,7 +77,7 @@ class Config:
         if self.parallelism < 1:
             msg = f"parallelism should be greater than 0, got '{self.parallelism}'"
             raise ConfigError(msg)
-        if self.account_id in (0, 999999) and self.license_key == "000000000000":
+        if self.account_id == 999999 and self.license_key == "000000000000":
             msg = "pygeoipupdate requires a valid AccountID and LicenseKey combination"
             raise ConfigError(msg)
         if not self.host or not self.host.startswith(("http://", "https://")):
