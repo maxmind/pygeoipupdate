@@ -77,6 +77,14 @@ class Config:
         if self.parallelism < 1:
             msg = f"parallelism should be greater than 0, got '{self.parallelism}'"
             raise ConfigError(msg)
+        if self.account_id in (0, 999999) and self.license_key == "000000000000":
+            msg = "pygeoipupdate requires a valid AccountID and LicenseKey combination"
+            raise ConfigError(msg)
+        if not self.host or not self.host.startswith(("http://", "https://")):
+            msg = "host must be an http:// or https:// URL"
+            raise ConfigError(msg)
+        if self.retry_for < timedelta(0):
+            raise ConfigError("retry_for must be non-negative")
 
     @classmethod
     def from_file(
@@ -480,6 +488,10 @@ def _parse_environment() -> dict[str, object]:
 def _validate_config(config: dict[str, object]) -> None:
     """Validate that required configuration values are present.
 
+    These checks apply to the dict-building phase before Config
+    construction.  Invariant checks that also apply to direct
+    construction live in Config.__post_init__.
+
     Args:
         config: Configuration dictionary.
 
@@ -487,23 +499,15 @@ def _validate_config(config: dict[str, object]) -> None:
         ConfigError: If required values are missing or invalid.
 
     """
-    # Check for invalid placeholder credentials
-    account_id = config.get("account_id", 0)
-    license_key = config.get("license_key", "")
-
-    if (account_id in (0, 999999)) and license_key == "000000000000":
-        msg = "pygeoipupdate requires a valid AccountID and LicenseKey combination"
-        raise ConfigError(msg)
-
     if not config.get("edition_ids"):
         msg = "the `EditionIDs` option is required"
         raise ConfigError(msg)
 
-    if not account_id:
+    if not config.get("account_id"):
         msg = "the `AccountID` option is required"
         raise ConfigError(msg)
 
-    if not license_key:
+    if not config.get("license_key"):
         msg = "the `LicenseKey` option is required"
         raise ConfigError(msg)
 

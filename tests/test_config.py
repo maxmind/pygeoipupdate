@@ -442,3 +442,30 @@ EditionIDs GeoLite2-City
                 edition_ids=["GeoLite2-City"],
                 parallelism=0,
             )
+
+    def test_placeholder_credentials_rejected_direct_construction(self) -> None:
+        with pytest.raises(ConfigError, match="valid AccountID and LicenseKey"):
+            Config(
+                account_id=999999,
+                license_key="000000000000",
+                edition_ids=["GeoLite2-City"],
+                database_directory=Path("/var/lib/GeoIP"),
+            )
+
+    def test_invalid_host_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="host must be an http"):
+            Config(
+                account_id=1,
+                license_key="abc123",
+                edition_ids=["GeoLite2-City"],
+                host="not-a-url",
+            )
+
+    def test_negative_retry_for_rejected(self) -> None:
+        with pytest.raises(ConfigError, match="retry_for must be non-negative"):
+            Config(
+                account_id=1,
+                license_key="abc123",
+                edition_ids=["GeoLite2-City"],
+                retry_for=timedelta(days=-1),
+            )
