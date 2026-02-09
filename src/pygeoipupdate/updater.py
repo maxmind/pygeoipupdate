@@ -162,9 +162,8 @@ class Updater:
 
         # Acquire file lock
         self._lock = FileLock(self._config.lock_file, verbose=self._config.verbose)
-        self._lock.acquire()
-
         try:
+            self._lock.acquire()
             return await self._run_updates()
         finally:
             if self._lock:
