@@ -548,7 +548,7 @@ def _build_proxy_url(
     host = parsed.hostname or ""
     port = parsed.port
     if port is None:
-        port = 1080  # Default from cURL
+        port = 1080  # Default proxy port (matching Go implementation)
 
     netloc = f"{host}:{port}"
 
