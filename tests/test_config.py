@@ -139,19 +139,20 @@ Parallelism -1
         with pytest.raises(ConfigError, match="parallelism should be greater than 0"):
             _parse_config_file(config_file)
 
-    def test_deprecated_options_ignored(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "option",
+        ["Protocol https", "SkipHostnameVerification 1", "SkipPeerVerification 1"],
+    )
+    def test_deprecated_options_rejected(self, tmp_path: Path, option: str) -> None:
         config_file = tmp_path / "GeoIP.conf"
-        config_file.write_text("""AccountID 12345
+        config_file.write_text(f"""AccountID 12345
 LicenseKey abc
 EditionIDs Test
-Protocol https
-SkipHostnameVerification 1
-SkipPeerVerification 1
+{option}
 """)
 
-        # Should not raise
-        config = _parse_config_file(config_file)
-        assert config["account_id"] == 12345
+        with pytest.raises(ConfigError, match="unknown option"):
+            _parse_config_file(config_file)
 
 
 class TestParseDuration:

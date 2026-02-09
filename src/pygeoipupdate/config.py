@@ -282,9 +282,6 @@ def _set_config_value(
     elif key == "ProxyUserPassword":
         config["_proxy_user_password"] = value
 
-    elif key in ("Protocol", "SkipHostnameVerification", "SkipPeerVerification"):
-        logger.warning("Deprecated configuration option '%s' ignored", key)
-
     elif key == "RetryFor":
         config["retry_for"] = _parse_duration(value)
 
