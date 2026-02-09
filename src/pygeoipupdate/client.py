@@ -15,6 +15,7 @@ from urllib.parse import quote, urlencode
 import aiohttp
 
 from pygeoipupdate import __version__
+from pygeoipupdate._utils import cleanup_temp_file
 from pygeoipupdate.errors import AuthenticationError, DownloadError, HTTPError
 from pygeoipupdate.models import Metadata
 
@@ -283,7 +284,7 @@ class Client:
                         f.flush()
                         os.fsync(f.fileno())
                 except BaseException:
-                    _cleanup_temp_file(temp_path)
+                    cleanup_temp_file(temp_path)
                     raise
 
                 return Path(temp_path), last_modified
@@ -291,10 +292,3 @@ class Client:
         except aiohttp.ClientError as e:
             msg = f"Failed to download database: {e}"
             raise DownloadError(msg) from e
-
-
-def _cleanup_temp_file(temp_path: str) -> None:
-    try:
-        os.unlink(temp_path)
-    except OSError:
-        logger.warning("Failed to clean up temp file: %s", temp_path, exc_info=True)

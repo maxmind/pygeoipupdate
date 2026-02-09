@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import os
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self
 
@@ -20,6 +19,7 @@ from tenacity import (
 
 from pygeoipupdate._file_lock import FileLock
 from pygeoipupdate._file_writer import LocalFileWriter
+from pygeoipupdate._utils import cleanup_temp_file
 from pygeoipupdate.client import Client, NoUpdateAvailable
 from pygeoipupdate.errors import (
     AuthenticationError,
@@ -33,13 +33,6 @@ if TYPE_CHECKING:
     from pygeoipupdate.config import Config
 
 logger = logging.getLogger(__name__)
-
-
-def _cleanup_temp_file(temp_path: str) -> None:
-    try:
-        os.unlink(temp_path)
-    except OSError:
-        logger.warning("Failed to clean up temp file: %s", temp_path, exc_info=True)
 
 
 def _is_retryable_error(exception: BaseException) -> bool:
@@ -287,7 +280,7 @@ class Updater:
                 response.last_modified,
             )
         finally:
-            _cleanup_temp_file(str(response.compressed_path))
+            cleanup_temp_file(str(response.compressed_path))
 
         return UpdateResult(
             edition_id=edition_id,

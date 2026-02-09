@@ -12,6 +12,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+from pygeoipupdate._utils import cleanup_temp_file
 from pygeoipupdate.errors import DownloadError, HashMismatchError
 
 logger = logging.getLogger(__name__)
@@ -126,12 +127,12 @@ class LocalFileWriter:
                 f.flush()
                 os.fsync(f.fileno())
         except Exception:
-            self._cleanup_temp_file(temp_path)
+            cleanup_temp_file(temp_path)
             raise
 
         # Validate hash after writing
         if actual_md5.lower() != expected_md5.lower():
-            self._cleanup_temp_file(temp_path)
+            cleanup_temp_file(temp_path)
             msg = (
                 f"MD5 of new database ({actual_md5}) "
                 f"does not match expected MD5 ({expected_md5})"
@@ -141,7 +142,7 @@ class LocalFileWriter:
         try:
             os.replace(temp_path, final_path)
         except Exception:
-            self._cleanup_temp_file(temp_path)
+            cleanup_temp_file(temp_path)
             raise
 
         # After the atomic rename, the database is correctly placed.
@@ -227,13 +228,6 @@ class LocalFileWriter:
             msg = f"Invalid edition_id: {edition_id}"
             raise DownloadError(msg)
         return self._dir / f"{edition_id}.mmdb"
-
-    @staticmethod
-    def _cleanup_temp_file(temp_path: str) -> None:
-        try:
-            os.unlink(temp_path)
-        except OSError:
-            logger.warning("Failed to clean up temp file: %s", temp_path, exc_info=True)
 
     def _sync_dir(self, path: Path) -> None:
         """Sync directory to ensure rename is persisted.
