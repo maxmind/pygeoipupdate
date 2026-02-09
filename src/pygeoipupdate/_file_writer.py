@@ -7,6 +7,7 @@ import hashlib
 import io
 import logging
 import os
+import re
 import tarfile
 import tempfile
 from datetime import datetime
@@ -18,6 +19,8 @@ from pygeoipupdate.errors import DownloadError, HashMismatchError
 logger = logging.getLogger(__name__)
 
 ZERO_MD5 = "00000000000000000000000000000000"
+
+_VALID_EDITION_ID = re.compile(r"^[A-Za-z0-9-]+$")
 
 
 class LocalFileWriter:
@@ -221,10 +224,10 @@ class LocalFileWriter:
             Path to the database file.
 
         Raises:
-            DownloadError: If edition_id contains path traversal characters.
+            DownloadError: If edition_id is not a valid database name.
 
         """
-        if "/" in edition_id or "\\" in edition_id or ".." in edition_id:
+        if not _VALID_EDITION_ID.match(edition_id):
             msg = f"Invalid edition_id: {edition_id}"
             raise DownloadError(msg)
         return self._dir / f"{edition_id}.mmdb"

@@ -216,9 +216,9 @@ class TestLocalFileWriter:
 
     @pytest.mark.parametrize(
         "edition_id",
-        ["../etc/passwd", "foo/bar", "foo\\bar", ".."],
+        ["../etc/passwd", "foo/bar", "foo\\bar", "..", "has space", "has.dot", ""],
     )
-    def test_path_traversal_rejected(self, tmp_path: Path, edition_id: str) -> None:
+    def test_invalid_edition_id_rejected(self, tmp_path: Path, edition_id: str) -> None:
         writer = LocalFileWriter(tmp_path)
 
         with pytest.raises(DownloadError, match="Invalid edition_id"):
