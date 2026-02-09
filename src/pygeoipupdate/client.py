@@ -136,11 +136,14 @@ class Client:
                     raise AuthenticationError(msg)
 
                 if response.status != 200:
-                    body = await response.text()
+                    body_text = await response.text()
+                    body = body_text[:256]
+                    if len(body_text) > 256:
+                        body += f"... ({len(body_text)} bytes total)"
                     raise HTTPError(
                         f"Unexpected HTTP status code: {response.status}",
                         status_code=response.status,
-                        body=body[:256],
+                        body=body,
                     )
 
                 data = await response.json()
@@ -244,11 +247,14 @@ class Client:
                     raise AuthenticationError(msg)
 
                 if response.status != 200:
-                    body = await response.text()
+                    body_text = await response.text()
+                    body = body_text[:256]
+                    if len(body_text) > 256:
+                        body += f"... ({len(body_text)} bytes total)"
                     raise HTTPError(
                         f"Unexpected HTTP status code: {response.status}",
                         status_code=response.status,
-                        body=body[:256],
+                        body=body,
                     )
 
                 # Parse Last-Modified header
