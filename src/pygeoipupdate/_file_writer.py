@@ -123,9 +123,9 @@ class LocalFileWriter:
         )
 
         try:
-            if hasattr(os, "fchmod"):
-                os.fchmod(fd, 0o644)
             with os.fdopen(fd, "wb") as f:
+                if hasattr(os, "fchmod"):
+                    os.fchmod(f.fileno(), 0o644)
                 actual_md5 = self._extract_and_write(f, compressed_path)
                 f.flush()
                 os.fsync(f.fileno())
