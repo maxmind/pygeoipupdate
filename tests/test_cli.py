@@ -12,6 +12,7 @@ import pytest
 from click.testing import CliRunner
 from pytest_httpserver import HTTPServer
 
+from pygeoipupdate import __version__
 from pygeoipupdate.cli import main
 from tests.conftest import create_test_tar_gz
 
@@ -25,7 +26,7 @@ class TestCLI:
 
         assert result.exit_code == 0
         assert "pygeoipupdate" in result.output
-        assert "1.0.0" in result.output
+        assert __version__ in result.output
 
     def test_version_short_flag(self) -> None:
         runner = CliRunner()
@@ -33,7 +34,7 @@ class TestCLI:
 
         assert result.exit_code == 0
         assert "pygeoipupdate" in result.output
-        assert "1.0.0" in result.output
+        assert __version__ in result.output
 
     def test_help(self) -> None:
         runner = CliRunner()

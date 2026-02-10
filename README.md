@@ -90,6 +90,8 @@ asyncio.run(main())
 ### Loading Configuration from File
 
 ```python
+from pathlib import Path
+
 from pygeoipupdate import Config, Updater
 
 config = Config.from_file(config_file=Path("/etc/GeoIP.conf"))
@@ -178,6 +180,18 @@ Options:
 - Configuration file: `%SYSTEMDRIVE%\ProgramData\MaxMind\GeoIPUpdate\GeoIP.conf`
 - Database directory: `%SYSTEMDRIVE%\ProgramData\MaxMind\GeoIPUpdate\GeoIP`
 
+## Error Handling
+
+When using the Python API, pygeoipupdate raises specific exceptions:
+
+- `GeoIPUpdateError` — Base exception for all errors.
+  - `ConfigError` — Invalid configuration.
+  - `DownloadError` — Download failure.
+    - `AuthenticationError` — Invalid account ID or license key.
+    - `HTTPError` — HTTP error with `.status_code` and `.body` attributes.
+  - `LockError` — Could not acquire the lock file.
+  - `HashMismatchError` — Downloaded file hash mismatch (`.expected`, `.actual`).
+
 ## Running as a Cron Job
 
 To keep your databases up to date, we recommend running pygeoipupdate at least
@@ -193,9 +207,21 @@ twice per week. Here's an example cron entry:
 - Python 3.11+
 - A MaxMind account with a license key
 
-## License
+## Bug Reports
 
-Apache-2.0
+Please report bugs by filing an issue with [our GitHub issue
+tracker](https://github.com/maxmind/pygeoipupdate/issues).
+
+## Versioning
+
+This library uses [Semantic Versioning](https://semver.org/).
+
+## Copyright and License
+
+This software is Copyright (c) 2025 - 2026 by MaxMind, Inc.
+
+This is free software, licensed under the [Apache License, Version
+2.0](LICENSE-APACHE) or the [MIT License](LICENSE-MIT), at your option.
 
 ## Links
 

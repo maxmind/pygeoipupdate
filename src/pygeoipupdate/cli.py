@@ -126,7 +126,7 @@ def main(  # noqa: C901, PLR0912
     except* KeyboardInterrupt:
         click.echo("\nInterrupted.", err=True)
         exit_code = 130
-    except* Exception as eg:  # noqa: BLE001
+    except* Exception as eg:
         for exc in eg.exceptions:  # type: ignore[assignment]
             logger.error("Unexpected error", exc_info=exc)  # noqa: TRY400
             click.echo(f"Unexpected error ({type(exc).__name__}): {exc}", err=True)

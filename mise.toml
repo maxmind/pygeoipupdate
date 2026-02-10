@@ -1,0 +1,21 @@
+[settings]
+# Require lockfile URLs to be present during installation
+lockfile = true
+locked = true
+
+# Disable backends that use community-maintained bash scripts (supply chain risk)
+# See: https://github.com/jdx/mise/discussions/4054
+disable_backends = [
+    "asdf", # Community bash plugins - supply chain attack vector
+    "vfox", # Same bash plugin model as asdf - supply chain risk
+]
+
+[tools]
+"aqua:astral-sh/uv" = "latest"
+
+[hooks]
+enter = "mise install --quiet"
+
+[[watch_files]]
+patterns = ["mise.toml", "mise.lock"]
+run = "mise install --quiet"
