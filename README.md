@@ -193,9 +193,12 @@ twice per week. Here's an example cron entry:
 - Python 3.11+
 - A MaxMind account with a license key
 
-## License
+## Copyright and License
 
-Apache-2.0
+This software is Copyright (c) 2025 - 2026 by MaxMind, Inc.
+
+This is free software, licensed under the [Apache License, Version
+2.0](LICENSE-APACHE) or the [MIT License](LICENSE-MIT), at your option.
 
 ## Links
 
