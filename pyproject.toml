@@ -47,7 +47,7 @@ dev = [
 ]
 lint = [
     "mypy>=1.15.0",
-    "ruff>=0.11.6",
+    "ruff>=0.15.0",
 ]
 
 [build-system]
@@ -93,7 +93,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ANN201", "D", "S101", "S105", "S324", "E501", "PLC0415", "RUF043", "F841", "SLF001"]
+"tests/*" = ["ANN201", "ASYNC240", "D", "S101", "S105", "S324", "E501", "PLC0415", "RUF043", "F841", "SLF001"]
 "src/pygeoipupdate/_file_writer.py" = ["S324"]
 "src/pygeoipupdate/_file_lock.py" = ["E501"]
 # config.py has necessary complexity from porting Go config parsing
