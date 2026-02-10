@@ -74,7 +74,10 @@ class TestLocalFileWriter:
 
         assert result == ZERO_MD5
 
-    @pytest.mark.skipif(os.getuid() == 0, reason="root ignores file permissions")
+    @pytest.mark.skipif(
+        not hasattr(os, "getuid") or os.getuid() == 0,
+        reason="requires Unix non-root",
+    )
     def test_get_hash_permission_error(self, tmp_path: Path) -> None:
         writer = LocalFileWriter(tmp_path)
         file_path = tmp_path / "GeoLite2-City.mmdb"
