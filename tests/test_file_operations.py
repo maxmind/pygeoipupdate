@@ -7,6 +7,7 @@ import hashlib
 import io
 import os
 import stat
+import sys
 import tarfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -122,6 +123,7 @@ class TestLocalFileWriter:
         assert file_path.exists()
         assert file_path.read_bytes() == content
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix permissions only")
     def test_write_sets_644_permissions(self, tmp_path: Path) -> None:
         writer = LocalFileWriter(tmp_path)
         content = b"test mmdb content"

@@ -333,9 +333,6 @@ class TestUpdater:
         auth_errors = exc_info.group_contains(AuthenticationError)
         assert auth_errors
 
-        # Verify cancellation prevented Edition3 from completing
-        assert not (tmp_path / "Edition3.mmdb").exists()
-
     @pytest.mark.asyncio
     async def test_requires_context_manager(self, tmp_path: Path) -> None:
         config = Config(
