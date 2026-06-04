@@ -12,6 +12,11 @@ disable_backends = [
 
 [tools]
 "aqua:astral-sh/uv" = "latest"
+lychee = "latest"
+
+[tasks.check-links]
+description = "Check links with lychee"
+run = "lychee --no-progress './**/*.md' './**/*.rst' './src/pygeoipupdate/**/*.py' './pyproject.toml'"
 
 [hooks]
 enter = "mise install --quiet"
