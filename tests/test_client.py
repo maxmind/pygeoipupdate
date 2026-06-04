@@ -48,6 +48,35 @@ class TestClient:
             assert metadata.md5 == "abc123def456"
 
     @pytest.mark.asyncio
+    async def test_sends_authorization_header(self, httpserver: HTTPServer) -> None:
+        httpserver.expect_request(
+            "/geoip/updates/metadata",
+            query_string="edition_id=GeoLite2-City",
+        ).respond_with_json(
+            {
+                "databases": [
+                    {
+                        "edition_id": "GeoLite2-City",
+                        "date": "2024-01-15",
+                        "md5": "abc123def456",
+                    }
+                ]
+            }
+        )
+
+        async with Client(
+            account_id=12345,
+            license_key="test_key",
+            host=httpserver.url_for("/"),
+        ) as client:
+            await client.get_metadata("GeoLite2-City")
+
+        # Credentials must be sent via the Authorization header rather than the
+        # deprecated aiohttp BasicAuth / auth= parameter. base64("12345:test_key").
+        request, _ = httpserver.log[-1]
+        assert request.headers.get("Authorization") == "Basic MTIzNDU6dGVzdF9rZXk="
+
+    @pytest.mark.asyncio
     async def test_get_metadata_auth_error(self, httpserver: HTTPServer) -> None:
         httpserver.expect_request(
             "/geoip/updates/metadata",

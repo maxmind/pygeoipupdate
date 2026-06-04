@@ -848,7 +848,7 @@ lint = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.8.0,<4.0.0" },
+    { name = "aiohttp", specifier = ">=3.14.0,<4.0.0" },
     { name = "click", specifier = ">=8.0.0,<9.0.0" },
     { name = "filelock", specifier = ">=3.12.0,<4.0.0" },
     { name = "tenacity", specifier = ">=8.2.0,<10.0.0" },

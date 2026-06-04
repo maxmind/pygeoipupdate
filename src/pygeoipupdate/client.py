@@ -86,12 +86,16 @@ class Client:
         self._host = host.rstrip("/")
         self._proxy = proxy
         self._session: aiohttp.ClientSession | None = None
-        self._auth: aiohttp.BasicAuth | None = None
 
     async def __aenter__(self) -> Self:
         """Enter async context manager."""
-        self._auth = aiohttp.BasicAuth(str(self._account_id), self._license_key)
-        headers = {"User-Agent": f"pygeoipupdate/{__version__}"}
+        headers = {
+            "Authorization": aiohttp.encode_basic_auth(
+                str(self._account_id),
+                self._license_key,
+            ),
+            "User-Agent": f"pygeoipupdate/{__version__}",
+        }
         self._session = aiohttp.ClientSession(headers=headers)
         return self
 
@@ -129,9 +133,7 @@ class Client:
         url = f"{self._host}/geoip/updates/metadata?{params}"
 
         try:
-            async with self._session.get(
-                url, proxy=self._proxy, auth=self._auth
-            ) as response:
+            async with self._session.get(url, proxy=self._proxy) as response:
                 if response.status == 401:
                     msg = "Invalid account ID or license key"
                     raise AuthenticationError(msg)
@@ -240,9 +242,7 @@ class Client:
         url = f"{self._host}/geoip/databases/{escaped_edition}/download?{params}"
 
         try:
-            async with self._session.get(
-                url, proxy=self._proxy, auth=self._auth
-            ) as response:
+            async with self._session.get(url, proxy=self._proxy) as response:
                 if response.status == 401:
                     msg = "Invalid account ID or license key"
                     raise AuthenticationError(msg)
