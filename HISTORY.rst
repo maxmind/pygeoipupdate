@@ -3,6 +3,14 @@
 History
 -------
 
+0.2.0
+++++++++++++++++++
+
+* The client now builds its ``Authorization`` header with
+  ``aiohttp.encode_basic_auth()`` instead of the ``aiohttp.BasicAuth`` /
+  ``auth=`` parameter, which are deprecated as of aiohttp 3.14.0. As a result,
+  the minimum required ``aiohttp`` version is now 3.14.0.
+
 0.1.0 (2026-02-10)
 ++++++++++++++++++
 
