@@ -26,5 +26,8 @@ htmlcov/
 # mypy
 .mypy_cache/
 
+# lychee link checker
+.lycheecache
+
 # Claude workspace
 .claude/

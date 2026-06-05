@@ -226,5 +226,5 @@ This is free software, licensed under the [Apache License, Version
 ## Links
 
 - [MaxMind Developer Portal](https://dev.maxmind.com/)
-- [GeoIP2 Database Documentation](https://dev.maxmind.com/geoip/docs/databases)
+- [GeoIP2 Database Documentation](https://dev.maxmind.com/geoip/docs/databases/)
 - [Go version (geoipupdate)](https://github.com/maxmind/geoipupdate)
