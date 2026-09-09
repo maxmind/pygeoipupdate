@@ -75,6 +75,7 @@ config = Config(
     database_directory=Path("/var/lib/GeoIP"),
 )
 
+
 async def main():
     async with Updater(config) as updater:
         results = await updater.run()
@@ -83,6 +84,7 @@ async def main():
                 print(f"Updated {result.edition_id}")
             else:
                 print(f"{result.edition_id} is up to date")
+
 
 asyncio.run(main())
 ```
