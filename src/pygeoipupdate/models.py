@@ -13,13 +13,13 @@ class Metadata:
 
     Attributes:
         edition_id: The database edition ID.
-        date: The database date in YYYY-MM-DD format.
+        build_epoch: Identifies the exact build that md5 describes.
         md5: The MD5 hash of the database file.
 
     """
 
     edition_id: str
-    date: str
+    build_epoch: int
     md5: str
 
 
