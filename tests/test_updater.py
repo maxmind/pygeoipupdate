@@ -47,6 +47,7 @@ class TestUpdater:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": mmdb_hash,
                     }
                 ]
@@ -104,6 +105,7 @@ class TestUpdater:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": mmdb_hash,
                     }
                 ]
@@ -158,6 +160,7 @@ class TestUpdater:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": city_hash,
                     }
                 ]
@@ -177,6 +180,7 @@ class TestUpdater:
                     {
                         "edition_id": "GeoLite2-Country",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": country_hash,
                     }
                 ]
@@ -229,7 +233,12 @@ class TestUpdater:
             ).respond_with_json(
                 {
                     "databases": [
-                        {"edition_id": edition, "date": "2024-01-15", "md5": md5_hash}
+                        {
+                            "edition_id": edition,
+                            "date": "2024-01-15",
+                            "build_epoch": 1705320000,
+                            "md5": md5_hash,
+                        }
                     ]
                 }
             )
@@ -276,7 +285,12 @@ class TestUpdater:
         ).respond_with_json(
             {
                 "databases": [
-                    {"edition_id": "Edition1", "date": "2024-01-15", "md5": e1_hash}
+                    {
+                        "edition_id": "Edition1",
+                        "date": "2024-01-15",
+                        "build_epoch": 1705320000,
+                        "md5": e1_hash,
+                    }
                 ]
             }
         )
@@ -308,7 +322,12 @@ class TestUpdater:
         ).respond_with_json(
             {
                 "databases": [
-                    {"edition_id": "Edition3", "date": "2024-01-15", "md5": e3_hash}
+                    {
+                        "edition_id": "Edition3",
+                        "date": "2024-01-15",
+                        "build_epoch": 1705320000,
+                        "md5": e3_hash,
+                    }
                 ]
             }
         )
@@ -361,6 +380,7 @@ class TestUpdater:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": mmdb_hash,
                     }
                 ]
@@ -428,6 +448,7 @@ class TestUpdater:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": mmdb_hash,
                     }
                 ]
@@ -483,6 +504,7 @@ class TestUpdater:
                             {
                                 "edition_id": "GeoLite2-City",
                                 "date": "2024-01-15",
+                                "build_epoch": 1705320000,
                                 "md5": mmdb_hash,
                             }
                         ]
