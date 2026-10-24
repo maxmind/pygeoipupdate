@@ -159,7 +159,7 @@ class Client:
                     db = databases[0]
                     return Metadata(
                         edition_id=db["edition_id"],
-                        date=db["date"],
+                        build_epoch=db["build_epoch"],
                         md5=db["md5"],
                     )
                 except (KeyError, IndexError) as e:
@@ -203,7 +203,7 @@ class Client:
 
         # Download the database
         compressed_path, last_modified = await self._fetch_database(
-            edition_id, metadata.date, temp_dir
+            edition_id, metadata.build_epoch, temp_dir
         )
 
         return UpdateAvailable(
@@ -215,14 +215,14 @@ class Client:
     async def _fetch_database(
         self,
         edition_id: str,
-        date: str,
+        build_epoch: int,
         temp_dir: Path,
     ) -> tuple[Path, datetime | None]:
         """Fetch the database file, streaming to a temp file.
 
         Args:
             edition_id: The database edition ID.
-            date: The database date in YYYY-MM-DD format.
+            build_epoch: The build to download, from the metadata response.
             temp_dir: Directory in which to create the download temp file.
 
         Returns:
@@ -234,10 +234,7 @@ class Client:
             msg = "Client must be used as async context manager"
             raise RuntimeError(msg)
 
-        # Convert date format from YYYY-MM-DD to YYYYMMDD
-        date_param = date.replace("-", "")
-
-        params = urlencode({"date": date_param, "suffix": "tar.gz"})
+        params = urlencode({"build_epoch": build_epoch, "suffix": "tar.gz"})
         escaped_edition = quote(edition_id, safe="")
         url = f"{self._host}/geoip/databases/{escaped_edition}/download?{params}"
 

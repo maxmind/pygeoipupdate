@@ -99,6 +99,7 @@ EditionIDs GeoLite2-City
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": mmdb_hash,
                     }
                 ]
@@ -137,6 +138,7 @@ DatabaseDirectory {tmp_path}
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": mmdb_hash,
                     }
                 ]
@@ -177,6 +179,7 @@ DatabaseDirectory {tmp_path}
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": mmdb_hash,
                     }
                 ]
@@ -262,6 +265,7 @@ Parallelism 2
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": mmdb_hash,
                     }
                 ]

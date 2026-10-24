@@ -30,6 +30,7 @@ class TestClient:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": "abc123def456",
                     }
                 ]
@@ -44,7 +45,7 @@ class TestClient:
             metadata = await client.get_metadata("GeoLite2-City")
 
             assert metadata.edition_id == "GeoLite2-City"
-            assert metadata.date == "2024-01-15"
+            assert metadata.build_epoch == 1705320000
             assert metadata.md5 == "abc123def456"
 
     @pytest.mark.asyncio
@@ -58,6 +59,7 @@ class TestClient:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": "abc123def456",
                     }
                 ]
@@ -138,6 +140,7 @@ class TestClient:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": "current_hash",
                     }
                 ]
@@ -169,6 +172,7 @@ class TestClient:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": "new_hash",
                     }
                 ]
@@ -177,7 +181,7 @@ class TestClient:
 
         httpserver.expect_request(
             "/geoip/databases/GeoLite2-City/download",
-            query_string="date=20240115&suffix=tar.gz",
+            query_string="build_epoch=1705320000&suffix=tar.gz",
         ).respond_with_data(
             tar_gz_data,
             content_type="application/gzip",
@@ -208,6 +212,7 @@ class TestClient:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": "new_hash",
                     }
                 ]
@@ -244,6 +249,7 @@ class TestClient:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": "new_hash",
                     }
                 ]
@@ -314,6 +320,7 @@ class TestClient:
                     {
                         "edition_id": "GeoLite2-City",
                         "date": "2024-01-15",
+                        "build_epoch": 1705320000,
                         "md5": "new_hash",
                     }
                 ]
