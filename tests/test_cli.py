@@ -166,6 +166,54 @@ DatabaseDirectory {tmp_path}
         assert str(config_file) in caplog.text
         assert str(tmp_path) in caplog.text
 
+    def test_verbose_no_config_file(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        runner = CliRunner()
+        with (
+            caplog.at_level(logging.INFO),
+            patch(
+                "pygeoipupdate._defaults.get_default_config_file",
+                return_value=tmp_path / "missing.conf",
+            ),
+            patch("pygeoipupdate.cli._run", new_callable=AsyncMock),
+        ):
+            result = runner.invoke(
+                main,
+                ["-v"],
+                env={
+                    "GEOIPUPDATE_ACCOUNT_ID": "12345",
+                    "GEOIPUPDATE_LICENSE_KEY": "test_key",
+                    "GEOIPUPDATE_EDITION_IDS": "GeoLite2-City",
+                },
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "Using no config file" in caplog.text
+
+    def test_verbose_default_config_file(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        default_file = tmp_path / "GeoIP.conf"
+        default_file.write_text("""AccountID 12345
+LicenseKey test_key
+EditionIDs GeoLite2-City
+""")
+
+        runner = CliRunner()
+        with (
+            caplog.at_level(logging.INFO),
+            patch(
+                "pygeoipupdate._defaults.get_default_config_file",
+                return_value=default_file,
+            ),
+            patch("pygeoipupdate.cli._run", new_callable=AsyncMock),
+        ):
+            result = runner.invoke(main, ["-v"])
+
+        assert result.exit_code == 0, result.output
+        assert f"Using config file {default_file}" in caplog.text
+
     def test_json_output(self, httpserver: HTTPServer, tmp_path: Path) -> None:
         mmdb_content = b"test mmdb data"
         mmdb_hash = hashlib.md5(mmdb_content).hexdigest()

@@ -13,6 +13,10 @@ History
 * ``pygeoipupdate`` now identifies the database to download by its build
   epoch rather than its date. Previously, if a new build was published on the
   same day during an update, the download could fail with a checksum mismatch.
+* In verbose mode, ``pygeoipupdate`` now prints ``Using no config file`` when
+  it uses no configuration file, and names the default configuration file when
+  it uses that. Previously it named only a file given with ``--config-file``
+  or ``GEOIPUPDATE_CONF_FILE``.
 
 0.1.0 (2026-02-10)
 ++++++++++++++++++

@@ -11,6 +11,7 @@ from pathlib import Path
 import click
 
 from pygeoipupdate import __version__
+from pygeoipupdate._defaults import find_default_config_file
 from pygeoipupdate.config import Config
 from pygeoipupdate.errors import (
     AuthenticationError,
@@ -151,6 +152,11 @@ def _setup(
         format="%(message)s",
     )
 
+    # Resolve the default here so the verbose output can name the file that
+    # is used. Config.from_file also resolves it, for library callers.
+    if config_file is None:
+        config_file = find_default_config_file()
+
     try:
         config = Config.from_file(
             config_file=config_file,
@@ -165,7 +171,9 @@ def _setup(
 
     if verbose:
         logger.info("pygeoipupdate version %s", __version__)
-        if config_file:
+        if config_file is None:
+            logger.info("Using no config file")
+        else:
             logger.info("Using config file %s", config_file)
         logger.info("Using database directory %s", config.database_directory)
 
