@@ -147,11 +147,6 @@ def _setup(
     if parallelism < 0:
         raise click.UsageError("Parallelism must be a positive number.")
 
-    logging.basicConfig(
-        level=logging.INFO if verbose else logging.WARNING,
-        format="%(message)s",
-    )
-
     # Resolve the default here so the verbose output can name the file that
     # is used. Config.from_file also resolves it, for library callers.
     if config_file is None:
@@ -169,7 +164,13 @@ def _setup(
         click.echo(f"Configuration error: {e}", err=True)
         sys.exit(1)
 
-    if verbose:
+    # Use config.verbose, which GEOIPUPDATE_VERBOSE can also set.
+    logging.basicConfig(
+        level=logging.INFO if config.verbose else logging.WARNING,
+        format="%(message)s",
+    )
+
+    if config.verbose:
         logger.info("pygeoipupdate version %s", __version__)
         if config_file is None:
             logger.info("Using no config file")

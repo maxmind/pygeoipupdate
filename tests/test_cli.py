@@ -191,6 +191,33 @@ DatabaseDirectory {tmp_path}
         assert result.exit_code == 0, result.output
         assert "Using no config file" in caplog.text
 
+    def test_verbose_from_env(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        runner = CliRunner()
+        with (
+            caplog.at_level(logging.INFO),
+            patch(
+                "pygeoipupdate._defaults.get_default_config_file",
+                return_value=tmp_path / "missing.conf",
+            ),
+            patch("pygeoipupdate.cli._run", new_callable=AsyncMock),
+        ):
+            result = runner.invoke(
+                main,
+                [],
+                env={
+                    "GEOIPUPDATE_ACCOUNT_ID": "12345",
+                    "GEOIPUPDATE_LICENSE_KEY": "test_key",
+                    "GEOIPUPDATE_EDITION_IDS": "GeoLite2-City",
+                    "GEOIPUPDATE_VERBOSE": "1",
+                },
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "pygeoipupdate version" in caplog.text
+        assert "Using no config file" in caplog.text
+
     def test_verbose_default_config_file(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:

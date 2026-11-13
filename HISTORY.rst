@@ -17,6 +17,8 @@ History
   it uses no configuration file, and names the default configuration file when
   it uses that. Previously it named only a file given with ``--config-file``
   or ``GEOIPUPDATE_CONF_FILE``.
+* ``GEOIPUPDATE_VERBOSE=1`` now enables verbose output. Previously only
+  ``--verbose`` did.
 
 0.1.0 (2026-02-10)
 ++++++++++++++++++
