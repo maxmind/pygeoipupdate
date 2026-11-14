@@ -12,7 +12,7 @@ from typing import Self, cast
 from urllib.parse import urlparse, urlunparse
 
 from pygeoipupdate._defaults import (
-    get_default_config_file,
+    find_default_config_file,
     get_default_database_directory,
 )
 from pygeoipupdate.errors import ConfigError
@@ -125,9 +125,7 @@ class Config:
 
         # Load from config file if it exists
         if config_file is None:
-            default_file = get_default_config_file()
-            if default_file.exists():
-                config_file = default_file
+            config_file = find_default_config_file()
 
         if config_file is not None:
             file_config = _parse_config_file(config_file)

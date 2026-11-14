@@ -20,6 +20,19 @@ def get_default_config_file() -> Path:
     return Path("/usr/local/etc/GeoIP.conf")
 
 
+def find_default_config_file() -> Path | None:
+    """Get the default configuration file path if the file exists.
+
+    Returns:
+        Path to the default configuration file, or None if it does not exist.
+
+    """
+    path = get_default_config_file()
+    if path.exists():
+        return path
+    return None
+
+
 def get_default_database_directory() -> Path:
     """Get the platform-specific default database directory path.
 
